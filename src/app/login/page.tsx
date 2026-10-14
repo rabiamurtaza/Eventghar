@@ -17,11 +17,12 @@ function LoginForm() {
   const displayMessage = rawMessage || (isBookingRedirect ? "Please log in or create an account first to book your tickets." : null);
 
   const handleGoogleLogin = async () => {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
     // Preserve the destination so user returns seamlessly after sign in
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectUrl)}`,
+        redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(redirectUrl)}`,
       },
     });
   };
