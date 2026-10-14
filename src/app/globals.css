@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  /* Clean light background */
+  --background: #f8fafc;
+  /* Dark text for readability */
+  --foreground: #0f172a;
+  
+  /* Deep purple/slate tone for surfaces (header, footer ONLY) */
+  --surface: #1e1b2e;
+  --surface-border: #2d2942;
+  --surface-hover: #262239;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-border: var(--surface-border);
+  --color-surface-hover: var(--surface-hover);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
