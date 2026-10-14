@@ -278,7 +278,7 @@ export default function EventsSection() {
 
             <div className="aspect-video w-full bg-neutral-100  flex items-center justify-center relative">
               {selectedEvent.image_url ? (
-                <img src={selectedEvent.image_url} alt=<span className="capitalize">{selectedEvent.title}</span> className="w-full h-full object-cover" />
+                <img src={selectedEvent.image_url} alt={selectedEvent.title || "Event Image"} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-slate-600  font-medium">No Image</span>
               )}

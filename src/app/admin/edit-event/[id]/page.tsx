@@ -12,8 +12,8 @@ import { useParams, useRouter } from 'next/navigation';
 
 export default function AdminEditEvent() {
   const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? "");
   const router = useRouter();
-  const eventId = params.id;
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [message, setMessage] = useState<{type: "error" | "success", text: string} | null>(null);
@@ -22,18 +22,18 @@ export default function AdminEditEvent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [submitStatus, setSubmitStatus] = useState<'draft' | 'published'>('draft');
-  const [actualEventId, setActualEventId] = useState<string>(eventId);
+  const [actualEventId, setActualEventId] = useState<string>(id);
   const [eventNumber, setEventNumber] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchEvent() {
       const supabase = createClient();
       let query = supabase.from('events').select('*');
-      const isNum = !isNaN(Number(eventId)) && !isNaN(parseInt(eventId));
+      const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
       if (isNum) {
-        query = query.eq('event_number', parseInt(eventId));
+        query = query.eq('event_number', parseInt(id));
       } else {
-        query = query.eq('id', eventId);
+        query = query.eq('id', id);
       }
       const { data, error } = await query.single();
       if (data) {
@@ -78,7 +78,7 @@ export default function AdminEditEvent() {
         
         // If ticket_price is not on events table, fetch from ticket_types table
         if (loadedTiers.length === 0) {
-          const { data: ttData } = await supabase.from('ticket_types').select('*').eq('event_id', eventId);
+          const { data: ttData } = await supabase.from('ticket_types').select('*').eq('event_id', id);
           if (ttData && ttData.length > 0) {
             loadedTiers = ttData.map((t: any) => ({
               name: t.name || 'Standard',
@@ -98,8 +98,8 @@ export default function AdminEditEvent() {
       }
       setInitialLoading(false);
     }
-    if (eventId) fetchEvent();
-  }, [eventId]);
+    if (id) fetchEvent();
+  }, [id]);
 
 
   const [ticketTiers, setTicketTiers] = useState([{ name: "Standard", price: "", total: "" }]);

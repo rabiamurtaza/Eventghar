@@ -26,8 +26,8 @@ function validateImageFile(file: File, fieldName: string): string | null {
 
 export default function BookTicketPage() {
   const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? "");
   const router = useRouter();
-  const eventId = params.id;
 
   const [session, setSession] = useState<any>(null);
   const [event, setEvent] = useState<any>(null);
@@ -54,17 +54,17 @@ export default function BookTicketPage() {
       
       if (!session) {
         const msg = encodeURIComponent("Please create an account or log in first to book your tickets.");
-        router.push(`/login?redirect=${encodeURIComponent(`/book/${eventId}`)}&message=${msg}`);
+        router.push(`/login?redirect=${encodeURIComponent(`/book/${id}`)}&message=${msg}`);
         return;
       }
       setSession(session);
 
       let query = supabase.from('events').select('*');
-      const isNum = !isNaN(Number(eventId)) && !isNaN(parseInt(eventId));
+      const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
       if (isNum) {
-        query = query.eq('event_number', parseInt(eventId));
+        query = query.eq('event_number', parseInt(id));
       } else {
-        query = query.eq('id', eventId);
+        query = query.eq('id', id);
       }
       const { data: eventData, error } = await query.single();
       
@@ -104,8 +104,8 @@ export default function BookTicketPage() {
       }
       setLoading(false);
     }
-    if (eventId) init();
-  }, [eventId, router]);
+    if (id) init();
+  }, [id, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,7 +165,7 @@ export default function BookTicketPage() {
       }
 
       const payload = {
-        event_id: event?.id || eventId,
+        event_id: event?.id || id,
         user_email: session.user.email,
         full_name: fullName,
         phone_number: session.user.user_metadata?.phone_number || "",
