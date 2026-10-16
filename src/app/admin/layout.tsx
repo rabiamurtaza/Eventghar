@@ -108,7 +108,7 @@ export default function AdminLayout({
     { label: "Create Event", href: "/admin/create-event" },
     { label: "Edit / Published Events", href: "/admin/published" },
     { label: "View Drafts", href: "/admin/drafts" },
-    { label: "Organizers List", href: "/admin/organizers" },
+    { label: "Users & Organizers", href: "/admin/organizers" },
     { label: "Manage Bookings", href: "/admin/bookings" },
     { label: "Event Requests", href: "/admin/requests" },
   ];

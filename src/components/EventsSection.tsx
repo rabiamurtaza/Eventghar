@@ -15,8 +15,6 @@ export default function EventsSection() {
 
   const [city, setCity] = useState("All");
   const [category, setCategory] = useState("All");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const [keyword, setKeyword] = useState("");
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
@@ -103,20 +101,10 @@ export default function EventsSection() {
       const matchCity = city === "All" || event.city === city;
       const matchCategory = category === "All" || event.category === category;
       const matchKeyword = event.title?.toLowerCase().includes(keyword.toLowerCase()) || event.description?.toLowerCase().includes(keyword.toLowerCase());
-      
-      let matchDate = true;
-      if (startDate && endDate && event.start_date) {
-        const eventDate = new Date(event.start_date);
-        matchDate = eventDate >= new Date(startDate) && eventDate <= new Date(endDate);
-      } else if (startDate && event.start_date) {
-        matchDate = new Date(event.start_date) >= new Date(startDate);
-      } else if (endDate && event.start_date) {
-        matchDate = new Date(event.start_date) <= new Date(endDate);
-      }
 
-      return matchCity && matchCategory && matchKeyword && matchDate;
+      return matchCity && matchCategory && matchKeyword;
     });
-  }, [events, city, category, startDate, endDate, keyword]);
+  }, [events, city, category, keyword]);
 
   return (
     <section id="events" className="mt-16 scroll-mt-24 pb-20">
@@ -126,7 +114,7 @@ export default function EventsSection() {
           Explore Upcoming Events
         </h2>
         <p className="mt-3 text-lg text-neutral-600 ">
-          Filter by city, category, or date to find exactly what you are looking for.
+          Filter by city, category, or search to find exactly what you are looking for.
         </p>
       </div>
 
@@ -156,25 +144,6 @@ export default function EventsSection() {
             </select>
           </div>
 
-          <div className="w-full md:w-auto flex-1">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">From Date</label>
-            <input 
-              type="date" 
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600   "
-            />
-          </div>
-
-          <div className="w-full md:w-auto flex-1">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">To Date</label>
-            <input 
-              type="date" 
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600   "
-            />
-          </div>
 
           <div className="w-full md:w-auto flex-[1.5]">
             <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Search</label>

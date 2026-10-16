@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { 
   getReviewedRequestIds, 
@@ -16,20 +17,58 @@ export default function AdminEventRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [organizerIds, setOrganizerIds] = useState<string[]>([]);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
 
   async function fetchRequests() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from('book_event_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [reqRes, orgRes] = await Promise.all([
+      supabase.from('book_event_requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('organizers').select('id')
+    ]);
     
-    if (data) {
-      setRequests(data);
+    if (reqRes.data) {
+      setRequests(reqRes.data);
+    }
+    if (orgRes.data) {
+      setOrganizerIds(orgRes.data.map((o: any) => o.id));
     }
     setReviewedIds(getReviewedRequestIds());
     setLoading(false);
   }
+
+  const handlePromoteRequester = async (req: any) => {
+    if (!req.user_id) {
+      alert("No User ID associated with this request.");
+      return;
+    }
+    setPromotingId(req.user_id);
+    const supabase = createClient();
+
+    try {
+      const { error: rpcErr } = await supabase.rpc('promote_user_to_organizer', {
+        target_user_id: req.user_id,
+        target_name: req.organizer_name,
+        target_email: req.organizer_contact
+      });
+
+      if (rpcErr) {
+        await supabase.from('organizers').upsert({
+          id: req.user_id,
+          name: req.organizer_name || 'Organizer',
+          email: req.organizer_contact || ''
+        });
+        await supabase.from('users').delete().eq('id', req.user_id);
+      }
+
+      setOrganizerIds(prev => [...prev, req.user_id]);
+      alert(`Successfully promoted "${req.organizer_name || 'user'}" to Organizer!`);
+    } catch (e: any) {
+      alert("Failed to promote: " + (e.message || e));
+    } finally {
+      setPromotingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -360,7 +399,22 @@ export default function AdminEventRequestsPage() {
 
               {/* Organizer Card */}
               <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700/50">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">Organizer Details</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Organizer Details</h4>
+                  {selectedRequest.user_id && organizerIds.includes(selectedRequest.user_id) ? (
+                    <span className="rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-2.5 py-0.5 text-[11px] font-bold flex items-center gap-1">
+                      <span>✓</span> Active Organizer
+                    </span>
+                  ) : selectedRequest.user_id ? (
+                    <button
+                      onClick={() => handlePromoteRequester(selectedRequest)}
+                      disabled={promotingId === selectedRequest.user_id}
+                      className="rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-xs font-bold transition flex items-center gap-1 shadow-sm disabled:opacity-50 cursor-pointer"
+                    >
+                      {promotingId === selectedRequest.user_id ? "Promoting..." : "★ Promote to Organizer"}
+                    </button>
+                  ) : null}
+                </div>
                 <div className="font-bold text-neutral-900 dark:text-white text-base">
                   {selectedRequest.organizer_name}
                 </div>
@@ -371,6 +425,11 @@ export default function AdminEventRequestsPage() {
                   >
                     ✉ {selectedRequest.organizer_contact}
                   </a>
+                  {selectedRequest.user_id && (
+                    <span className="text-[11px] font-mono text-neutral-400">
+                      User ID: {selectedRequest.user_id.slice(0, 8)}...
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -427,7 +486,7 @@ export default function AdminEventRequestsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-3">
               <button
                 onClick={() => handleToggleReviewed(selectedRequest)}
                 className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition"
@@ -435,12 +494,22 @@ export default function AdminEventRequestsPage() {
                 {isReviewed(selectedRequest) ? "Mark as Unreviewed" : "Mark as Reviewed"}
               </button>
 
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="rounded-xl bg-neutral-100 dark:bg-neutral-800 px-4 py-2 text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedRequest(null)}
+                  className="rounded-xl bg-neutral-100 dark:bg-neutral-800 px-4 py-2 text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition"
+                >
+                  Close
+                </button>
+
+                <Link
+                  href={`/admin/create-event?organizer_id=${selectedRequest.user_id || ''}&organizer_name=${encodeURIComponent(selectedRequest.organizer_name || '')}&organizer_contact=${encodeURIComponent(selectedRequest.organizer_contact || '')}&title=${encodeURIComponent(selectedRequest.title || '')}&city=${encodeURIComponent(selectedRequest.city || '')}&category=${encodeURIComponent(selectedRequest.category || '')}&venue_name=${encodeURIComponent(selectedRequest.venue_name || '')}&start_date=${encodeURIComponent(selectedRequest.start_date || '')}&total_tickets=${selectedRequest.expected_tickets || ''}&description=${encodeURIComponent(selectedRequest.description || '')}`}
+                  className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+                >
+                  <span>+</span>
+                  <span>Create Event for this Request →</span>
+                </Link>
+              </div>
             </div>
 
           </div>

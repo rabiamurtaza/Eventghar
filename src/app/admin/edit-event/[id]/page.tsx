@@ -24,10 +24,16 @@ export default function AdminEditEvent() {
   const [submitStatus, setSubmitStatus] = useState<'draft' | 'published'>('draft');
   const [actualEventId, setActualEventId] = useState<string>(id);
   const [eventNumber, setEventNumber] = useState<number | null>(null);
+  const [organizers, setOrganizers] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchEvent() {
       const supabase = createClient();
+
+      // Fetch organizers list
+      const { data: orgsData } = await supabase.from('organizers').select('id, name, email, organizer_number').order('name');
+      if (orgsData) setOrganizers(orgsData);
+
       let query = supabase.from('events').select('*');
       const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
       if (isNum) {
@@ -60,6 +66,7 @@ export default function AdminEditEvent() {
           university_name: data.university_name || '',
           payment_instructions: data.payment_instructions || '',
           terms_conditions: data.terms_conditions || '',
+          organizer_id: data.organizer_id || '',
           organizer_name: data.organizer_name || '',
           organizer_contact: data.organizer_contact || '',
           status: data.status || 'draft'
@@ -142,10 +149,26 @@ export default function AdminEditEvent() {
     university_name: "",
     payment_instructions: "",
     terms_conditions: "",
+    organizer_id: "",
     organizer_name: "",
     organizer_contact: "",
     status: "draft"
   });
+
+  const handleOrganizerSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value;
+    if (!selectedId) {
+      setFormData(prev => ({ ...prev, organizer_id: "" }));
+      return;
+    }
+    const selectedOrg = organizers.find(o => o.id === selectedId);
+    setFormData(prev => ({
+      ...prev,
+      organizer_id: selectedId,
+      organizer_name: selectedOrg ? (selectedOrg.name || prev.organizer_name) : prev.organizer_name,
+      organizer_contact: selectedOrg ? (selectedOrg.email || prev.organizer_contact) : prev.organizer_contact,
+    }));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -192,6 +215,7 @@ export default function AdminEditEvent() {
 
     const payload: any = {
       ...formData,
+      organizer_id: formData.organizer_id || null,
       total_tickets: formData.total_tickets ? parseInt(formData.total_tickets) : null,
       max_tickets_per_person: formData.is_student_only ? 1 : (formData.max_tickets_per_person ? parseInt(formData.max_tickets_per_person) : null),
       start_date: formData.start_date || null,
@@ -479,6 +503,28 @@ export default function AdminEditEvent() {
               7. Organizer Links & Status
             </h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-1">
+                  Assign Organizer Account
+                </label>
+                <select
+                  name="organizer_id"
+                  value={formData.organizer_id}
+                  onChange={handleOrganizerSelect}
+                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white"
+                >
+                  <option value="">-- No Organizer Assigned (Admin Managed) --</option>
+                  {organizers.map(org => (
+                    <option key={org.id} value={org.id}>
+                      {org.name || 'Unnamed'} ({org.email || org.id}) {org.organizer_number ? `[#${org.organizer_number}]` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Selecting an organizer automatically grants them access to manage this event, view attendees, and scan QR tickets at <span className="text-indigo-600 dark:text-indigo-400 font-mono">/organizer/bookings</span>.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Organizer Name</label>
                 <input type="text" name="organizer_name" value={formData.organizer_name} onChange={handleChange} placeholder="e.g. Events Co." className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white" />

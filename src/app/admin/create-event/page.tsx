@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
@@ -15,6 +15,7 @@ export default function AdminCreateEvent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [submitStatus, setSubmitStatus] = useState<'draft' | 'published'>('draft');
+  const [organizers, setOrganizers] = useState<any[]>([]);
 
   const [ticketTiers, setTicketTiers] = useState([{ name: "Standard", price: "", total: "" }]);
   const [paymentAccounts, setPaymentAccounts] = useState([{ method: "jazzcash", account_title_number: "" }]);
@@ -56,10 +57,58 @@ export default function AdminCreateEvent() {
     university_name: "",
     payment_instructions: "",
     terms_conditions: "",
+    organizer_id: "",
     organizer_name: "",
     organizer_contact: "",
     status: "draft"
   });
+
+  // Fetch available organizers from database
+  useEffect(() => {
+    async function loadOrganizers() {
+      const supabase = createClient();
+      const { data } = await supabase.from('organizers').select('id, name, email, organizer_number').order('name');
+      if (data) setOrganizers(data);
+    }
+    loadOrganizers();
+  }, []);
+
+  // Pre-fill form from URL query parameters (e.g. from Event Requests page)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const prefill: any = {};
+      if (params.get("title")) prefill.title = params.get("title");
+      if (params.get("city")) prefill.city = params.get("city");
+      if (params.get("category")) prefill.category = params.get("category");
+      if (params.get("venue_name")) prefill.venue_name = params.get("venue_name");
+      if (params.get("start_date")) prefill.start_date = params.get("start_date");
+      if (params.get("total_tickets")) prefill.total_tickets = params.get("total_tickets");
+      if (params.get("description")) prefill.description = params.get("description");
+      if (params.get("organizer_id")) prefill.organizer_id = params.get("organizer_id");
+      if (params.get("organizer_name")) prefill.organizer_name = params.get("organizer_name");
+      if (params.get("organizer_contact")) prefill.organizer_contact = params.get("organizer_contact");
+
+      if (Object.keys(prefill).length > 0) {
+        setFormData(prev => ({ ...prev, ...prefill }));
+      }
+    }
+  }, []);
+
+  const handleOrganizerSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value;
+    if (!selectedId) {
+      setFormData(prev => ({ ...prev, organizer_id: "" }));
+      return;
+    }
+    const selectedOrg = organizers.find(o => o.id === selectedId);
+    setFormData(prev => ({
+      ...prev,
+      organizer_id: selectedId,
+      organizer_name: selectedOrg ? (selectedOrg.name || prev.organizer_name) : prev.organizer_name,
+      organizer_contact: selectedOrg ? (selectedOrg.email || prev.organizer_contact) : prev.organizer_contact,
+    }));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -134,7 +183,7 @@ export default function AdminCreateEvent() {
       university_name: formData.university_name,
       payment_instructions: formData.payment_instructions,
       terms_conditions: formData.terms_conditions,
-      organizer_id: null, // Admin will link this manually later
+      organizer_id: formData.organizer_id || null,
       organizer_name: formData.organizer_name,
       organizer_contact: formData.organizer_contact,
       total_tickets: formData.total_tickets ? parseInt(formData.total_tickets) : null,
@@ -428,6 +477,28 @@ export default function AdminCreateEvent() {
               7. Organizer Links & Status
             </h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-1">
+                  Assign Organizer Account
+                </label>
+                <select
+                  name="organizer_id"
+                  value={formData.organizer_id}
+                  onChange={handleOrganizerSelect}
+                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white"
+                >
+                  <option value="">-- No Organizer Assigned (Admin Managed) --</option>
+                  {organizers.map(org => (
+                    <option key={org.id} value={org.id}>
+                      {org.name || 'Unnamed'} ({org.email || org.id}) {org.organizer_number ? `[#${org.organizer_number}]` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Selecting an organizer automatically grants them access to manage this event, view attendees, and scan QR tickets at <span className="text-indigo-600 dark:text-indigo-400 font-mono">/organizer/bookings</span>.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Organizer Name</label>
                 <input type="text" name="organizer_name" value={formData.organizer_name} onChange={handleChange} placeholder="e.g. Events Co." className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white" />

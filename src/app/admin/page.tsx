@@ -21,10 +21,12 @@ export default function AdminDashboardPage() {
     async function fetchDashboardStats() {
       const supabase = createClient();
 
-      // 1. Fetch Events Stats
-      const { data: eventsData } = await supabase
-        .from('events')
-        .select('status, organizer_contact');
+      // 1. Fetch Events Stats & Organizers Count
+      const [eventsRes, orgsRes] = await Promise.all([
+        supabase.from('events').select('status, organizer_contact'),
+        supabase.from('organizers').select('*', { count: 'exact', head: true })
+      ]);
+      const eventsData = eventsRes.data;
       
       let totalEvents = 0;
       let publishedEvents = 0;
@@ -39,6 +41,10 @@ export default function AdminDashboardPage() {
           if (evt.organizer_contact) uniqueOrganizers.add(evt.organizer_contact);
         });
       }
+
+      const totalOrganizersCount = (orgsRes.count !== null && orgsRes.count !== undefined) 
+        ? orgsRes.count 
+        : uniqueOrganizers.size;
 
       // 2. Fetch Tickets Sold & Pending Bookings
       const { data: bookingsData } = await supabase
@@ -74,7 +80,7 @@ export default function AdminDashboardPage() {
         totalTicketsSold,
         pendingBookings,
         pendingRequests: pendingRequestsCount,
-        totalOrganizers: uniqueOrganizers.size
+        totalOrganizers: totalOrganizersCount
       });
       setLoading(false);
     }
@@ -148,12 +154,12 @@ export default function AdminDashboardPage() {
           className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Organizers</span>
-            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline">View List →</span>
+            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Users & Organizers</span>
+            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 group-hover:underline">Manage Roles →</span>
           </div>
           <span className="text-4xl font-extrabold text-neutral-900 dark:text-white">{stats.totalOrganizers}</span>
           <div className="mt-4 flex items-center gap-2 text-xs font-medium text-neutral-500">
-            Active hosts on platform
+            Active organizers hosting events
           </div>
         </Link>
 

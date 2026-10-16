@@ -15,8 +15,28 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
+    const { data: authData, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error && authData?.user) {
+      const user = authData.user
+      try {
+        // Check if user is already an admin or organizer
+        const [adminRes, orgRes] = await Promise.all([
+          supabase.from('admins').select('id').eq('id', user.id).maybeSingle(),
+          supabase.from('organizers').select('id').eq('id', user.id).maybeSingle(),
+        ])
+
+        if (!adminRes.data && !orgRes.data) {
+          // Record as normal user in public.users if not already exists
+          await supabase.from('users').upsert({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          }, { onConflict: 'id' })
+        }
+      } catch (err) {
+        console.error('Error syncing user profile on login:', err)
+      }
+
       return NextResponse.redirect(`${origin}${next}`)
     }
   }
