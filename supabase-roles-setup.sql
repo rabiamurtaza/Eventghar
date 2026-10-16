@@ -232,3 +232,93 @@ BEGIN
   END IF;
 END $$;
 
+-- 12. Hero Slider Images Bucket, Table & Admin RLS Policies
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('hero-images', 'hero-images', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public Read hero-images'
+  ) THEN
+    CREATE POLICY "Public Read hero-images"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'hero-images');
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Admin Upload hero-images'
+  ) THEN
+    CREATE POLICY "Admin Upload hero-images"
+    ON storage.objects FOR INSERT
+    TO authenticated
+    WITH CHECK (
+      bucket_id = 'hero-images' AND 
+      auth.uid() IN (SELECT id FROM public.admins)
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Admin Delete hero-images'
+  ) THEN
+    CREATE POLICY "Admin Delete hero-images"
+    ON storage.objects FOR DELETE
+    TO authenticated
+    USING (
+      bucket_id = 'hero-images' AND 
+      auth.uid() IN (SELECT id FROM public.admins)
+    );
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.hero_images (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  image_url TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.hero_images ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'hero_images' AND policyname = 'Public read hero_images table'
+  ) THEN
+    CREATE POLICY "Public read hero_images table"
+    ON public.hero_images FOR SELECT
+    USING (true);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'hero_images' AND policyname = 'Admin insert hero_images table'
+  ) THEN
+    CREATE POLICY "Admin insert hero_images table"
+    ON public.hero_images FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() IN (SELECT id FROM public.admins));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'hero_images' AND policyname = 'Admin delete hero_images table'
+  ) THEN
+    CREATE POLICY "Admin delete hero_images table"
+    ON public.hero_images FOR DELETE
+    TO authenticated
+    USING (auth.uid() IN (SELECT id FROM public.admins));
+  END IF;
+END $$;
+
+
