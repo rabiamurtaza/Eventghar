@@ -15,7 +15,6 @@ export default function OrganizerBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<"organizer" | "admin">("organizer");
   const [eventFilter, setEventFilter] = useState("All");
   const [eventsList, setEventsList] = useState<any[]>([]);
 
@@ -39,23 +38,20 @@ export default function OrganizerBookingsPage() {
         return;
       }
 
-      let query = supabase
+      const query = supabase
         .from('bookings')
         .select(`
           *,
           events!inner(id, title, organizer_id, event_number)
         `)
+        .eq('events.organizer_id', session.user.id)
         .order('created_at', { ascending: false });
 
-      let eventsQuery = supabase
+      const eventsQuery = supabase
         .from('events')
         .select('id, title, organizer_id, event_number')
+        .eq('organizer_id', session.user.id)
         .eq('status', 'published');
-
-      if (viewMode === "organizer") {
-        query = query.eq('events.organizer_id', session.user.id);
-        eventsQuery = eventsQuery.eq('organizer_id', session.user.id);
-      }
 
       const [bookingsRes, eventsRes] = await Promise.all([query, eventsQuery]);
       
@@ -69,24 +65,21 @@ export default function OrganizerBookingsPage() {
     }
     
     fetchData();
-  }, [viewMode]);
+  }, []);
 
   async function fetchIssuedTickets() {
     if (!session) return;
     setAttendanceLoading(true);
     const supabase = createClient();
 
-    let query = supabase
+    const query = supabase
       .from('issued_tickets')
       .select(`
         *,
         events!inner(id, title, organizer_id, event_number)
       `)
+      .eq('events.organizer_id', session.user.id)
       .order('created_at', { ascending: false });
-
-    if (viewMode === "organizer") {
-      query = query.eq('events.organizer_id', session.user.id);
-    }
 
     const { data } = await query;
     if (data) {
@@ -261,15 +254,6 @@ export default function OrganizerBookingsPage() {
               <span>{activeEventObj ? `Scan: ${activeEventObj.title}` : "QR Scanner"}</span>
             </button>
 
-            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              <input 
-                type="checkbox" 
-                checked={viewMode === "admin"}
-                onChange={(e) => setViewMode(e.target.checked ? "admin" : "organizer")}
-                className="h-4 w-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              Admin: View All Events
-            </label>
           </div>
         </div>
 

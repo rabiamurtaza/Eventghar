@@ -55,7 +55,7 @@ export default function AdminEventRequestsPage() {
       if (rpcErr) {
         await supabase.from('organizers').upsert({
           id: req.user_id,
-          name: req.organizer_name || 'Organizer',
+          full_name: req.organizer_name || 'Organizer',
           email: req.organizer_contact || ''
         });
         await supabase.from('users').delete().eq('id', req.user_id);

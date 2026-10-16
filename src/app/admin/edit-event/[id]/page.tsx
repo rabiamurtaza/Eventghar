@@ -31,8 +31,16 @@ export default function AdminEditEvent() {
       const supabase = createClient();
 
       // Fetch organizers list
-      const { data: orgsData } = await supabase.from('organizers').select('id, name, email, organizer_number').order('name');
-      if (orgsData) setOrganizers(orgsData);
+      const { data: orgsData, error: orgsError } = await supabase.from('organizers').select('*');
+      if (orgsError) {
+        console.error("Error loading organizers:", orgsError.message);
+      }
+      if (orgsData && orgsData.length > 0) {
+        const sorted = [...orgsData].sort((a, b) =>
+          (a.full_name || a.name || a.email || '').localeCompare(b.full_name || b.name || b.email || '')
+        );
+        setOrganizers(sorted);
+      }
 
       let query = supabase.from('events').select('*');
       const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
@@ -165,8 +173,8 @@ export default function AdminEditEvent() {
     setFormData(prev => ({
       ...prev,
       organizer_id: selectedId,
-      organizer_name: selectedOrg ? (selectedOrg.name || prev.organizer_name) : prev.organizer_name,
-      organizer_contact: selectedOrg ? (selectedOrg.email || prev.organizer_contact) : prev.organizer_contact,
+      organizer_name: selectedOrg ? (selectedOrg.full_name || selectedOrg.name || prev.organizer_name) : prev.organizer_name,
+      organizer_contact: selectedOrg ? (selectedOrg.email || selectedOrg.phone_number || prev.organizer_contact) : prev.organizer_contact,
     }));
   };
 
@@ -516,7 +524,7 @@ export default function AdminEditEvent() {
                   <option value="">-- No Organizer Assigned (Admin Managed) --</option>
                   {organizers.map(org => (
                     <option key={org.id} value={org.id}>
-                      {org.name || 'Unnamed'} ({org.email || org.id}) {org.organizer_number ? `[#${org.organizer_number}]` : ''}
+                      {org.full_name || org.name || 'Unnamed Organizer'} ({org.email || org.phone_number || org.id}) {org.organizer_number ? `[#${org.organizer_number}]` : ''}
                     </option>
                   ))}
                 </select>

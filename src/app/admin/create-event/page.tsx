@@ -67,8 +67,16 @@ export default function AdminCreateEvent() {
   useEffect(() => {
     async function loadOrganizers() {
       const supabase = createClient();
-      const { data } = await supabase.from('organizers').select('id, name, email, organizer_number').order('name');
-      if (data) setOrganizers(data);
+      const { data, error } = await supabase.from('organizers').select('*');
+      if (error) {
+        console.error("Error loading organizers:", error.message);
+      }
+      if (data && data.length > 0) {
+        const sorted = [...data].sort((a, b) =>
+          (a.full_name || a.name || a.email || '').localeCompare(b.full_name || b.name || b.email || '')
+        );
+        setOrganizers(sorted);
+      }
     }
     loadOrganizers();
   }, []);
@@ -105,8 +113,8 @@ export default function AdminCreateEvent() {
     setFormData(prev => ({
       ...prev,
       organizer_id: selectedId,
-      organizer_name: selectedOrg ? (selectedOrg.name || prev.organizer_name) : prev.organizer_name,
-      organizer_contact: selectedOrg ? (selectedOrg.email || prev.organizer_contact) : prev.organizer_contact,
+      organizer_name: selectedOrg ? (selectedOrg.full_name || selectedOrg.name || prev.organizer_name) : prev.organizer_name,
+      organizer_contact: selectedOrg ? (selectedOrg.email || selectedOrg.phone_number || prev.organizer_contact) : prev.organizer_contact,
     }));
   };
 
@@ -490,7 +498,7 @@ export default function AdminCreateEvent() {
                   <option value="">-- No Organizer Assigned (Admin Managed) --</option>
                   {organizers.map(org => (
                     <option key={org.id} value={org.id}>
-                      {org.name || 'Unnamed'} ({org.email || org.id}) {org.organizer_number ? `[#${org.organizer_number}]` : ''}
+                      {org.full_name || org.name || 'Unnamed Organizer'} ({org.email || org.phone_number || org.id}) {org.organizer_number ? `[#${org.organizer_number}]` : ''}
                     </option>
                   ))}
                 </select>

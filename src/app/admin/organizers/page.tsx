@@ -6,8 +6,10 @@ import Link from "next/link";
 
 interface Organizer {
   id: string;
-  name: string;
+  full_name?: string;
+  name?: string;
   email: string;
+  phone_number?: string;
   organizer_number?: number;
   events?: any[];
 }
@@ -85,7 +87,7 @@ export default function AdminOrganizersAndUsersPage() {
   }, []);
 
   // Promote a User to Organizer
-  const handlePromoteToOrganizer = async (userId: string, name: string, email: string) => {
+  const handlePromoteToOrganizer = async (userId: string, name: string, email: string, phone?: string) => {
     setActionLoading(userId);
     setMessage(null);
     const supabase = createClient();
@@ -96,14 +98,16 @@ export default function AdminOrganizersAndUsersPage() {
         target_user_id: userId,
         target_name: name,
         target_email: email,
+        target_phone: phone || null,
       });
 
       if (rpcError) {
         // Fallback: direct insert to organizers and delete from users
         const { error: insErr } = await supabase.from("organizers").upsert({
           id: userId,
-          name: name || "Organizer",
+          full_name: name || "Organizer",
           email: email || "",
+          phone_number: phone || null,
         });
 
         if (insErr) throw insErr;
@@ -124,13 +128,14 @@ export default function AdminOrganizersAndUsersPage() {
 
   // Demote an Organizer back to Regular User
   const handleDemoteToUser = async (org: Organizer) => {
+    const displayName = org.full_name || org.name || org.email;
     if (org.events && org.events.length > 0) {
       const confirmDemote = window.confirm(
-        `Warning: "${org.name || org.email}" currently has ${org.events.length} event(s) linked to them. Demoting them will revoke their access to these events. Are you sure?`
+        `Warning: "${displayName}" currently has ${org.events.length} event(s) linked to them. Demoting them will revoke their access to these events. Are you sure?`
       );
       if (!confirmDemote) return;
     } else {
-      const confirmDemote = window.confirm(`Are you sure you want to demote "${org.name || org.email}" back to a regular user?`);
+      const confirmDemote = window.confirm(`Are you sure you want to demote "${displayName}" back to a regular user?`);
       if (!confirmDemote) return;
     }
 
@@ -148,8 +153,9 @@ export default function AdminOrganizersAndUsersPage() {
         // Fallback: direct insert to users and delete from organizers
         const { error: insErr } = await supabase.from("users").upsert({
           id: org.id,
-          full_name: org.name || "User",
+          full_name: org.full_name || org.name || "User",
           email: org.email || "",
+          phone_number: org.phone_number || null,
         });
 
         if (insErr) throw insErr;
@@ -158,7 +164,7 @@ export default function AdminOrganizersAndUsersPage() {
 
       setMessage({
         type: "success",
-        text: `"${org.name || org.email}" has been demoted to a regular User.`,
+        text: `"${displayName}" has been demoted to a regular User.`,
       });
       await fetchData();
     } catch (err: any) {
@@ -173,8 +179,10 @@ export default function AdminOrganizersAndUsersPage() {
     if (!search) return true;
     const term = search.toLowerCase();
     return (
+      org.full_name?.toLowerCase().includes(term) ||
       org.name?.toLowerCase().includes(term) ||
       org.email?.toLowerCase().includes(term) ||
+      org.phone_number?.includes(term) ||
       org.id.toLowerCase().includes(term)
     );
   });
@@ -306,7 +314,7 @@ export default function AdminOrganizersAndUsersPage() {
                     <tr key={org.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition">
                       <td className="px-6 py-4">
                         <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                          {org.name || "Unnamed"}
+                          {org.full_name || org.name || "Unnamed"}
                           {org.organizer_number && (
                             <span className="text-[10px] font-mono bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-500">
                               #{org.organizer_number}
@@ -319,9 +327,14 @@ export default function AdminOrganizersAndUsersPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <a href={`mailto:${org.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline text-xs font-medium">
+                        <a href={`mailto:${org.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline text-xs font-medium block">
                           {org.email || "No email"}
                         </a>
+                        {org.phone_number && (
+                          <div className="text-xs text-neutral-500 mt-0.5">
+                            {org.phone_number}
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-6 py-4">
@@ -355,7 +368,7 @@ export default function AdminOrganizersAndUsersPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
-                            href={`/admin/create-event?organizer_id=${org.id}&organizer_name=${encodeURIComponent(org.name || "")}&organizer_contact=${encodeURIComponent(org.email || "")}`}
+                            href={`/admin/create-event?organizer_id=${org.id}&organizer_name=${encodeURIComponent(org.full_name || org.name || "")}&organizer_contact=${encodeURIComponent(org.email || org.phone_number || "")}`}
                             className="rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-3 py-1.5 text-xs font-bold transition"
                             title="Create a new event and assign to this organizer"
                           >
@@ -429,7 +442,7 @@ export default function AdminOrganizersAndUsersPage() {
 
                       <td className="px-6 py-4 text-right">
                         <button
-                          onClick={() => handlePromoteToOrganizer(user.id, user.full_name, user.email)}
+                          onClick={() => handlePromoteToOrganizer(user.id, user.full_name, user.email, user.phone_number)}
                           disabled={actionLoading === user.id}
                           className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm disabled:opacity-50 flex items-center gap-1.5 ml-auto cursor-pointer"
                         >

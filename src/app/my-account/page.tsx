@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import TicketPassCard from "@/components/TicketPassCard";
 
 export default function MyAccountPage() {
-  const [activeTab, setActiveTab] = useState<"profile" | "tickets">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "tickets" | "events">("profile");
   const [loading, setLoading] = useState(true);
   
   // Profile state
@@ -18,9 +18,13 @@ export default function MyAccountPage() {
   const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   
-  // Tickets state
+  // Tickets state (for normal users)
   const [tickets, setTickets] = useState<any[]>([]);
   const [issuedTicketsMap, setIssuedTicketsMap] = useState<Record<string, any[]>>({});
+
+  // Events state (for organizers)
+  const [organizerEvents, setOrganizerEvents] = useState<any[]>([]);
+  const [selectedEventModal, setSelectedEventModal] = useState<any | null>(null);
   
   const supabase = createClient();
   const router = useRouter();
@@ -63,6 +67,17 @@ export default function MyAccountPage() {
         setFullName(organizerData.full_name || session.user.user_metadata?.full_name || "");
         setPhoneNumber(organizerData.phone_number || "");
         if (!organizerData.phone_number) setIsEditingProfile(true);
+
+        // Fetch events hosted by this organizer
+        const { data: orgEvents } = await supabase
+          .from("events")
+          .select("*")
+          .eq("organizer_id", session.user.id)
+          .order("created_at", { ascending: false });
+
+        if (orgEvents) {
+          setOrganizerEvents(orgEvents);
+        }
       } else {
         // 3. Otherwise, check User
         const { data: userData } = await supabase
@@ -76,33 +91,33 @@ export default function MyAccountPage() {
         setFullName(userData?.full_name || session.user.user_metadata?.full_name || "");
         setPhoneNumber(userData?.phone_number || "");
         if (!userData?.phone_number) setIsEditingProfile(true);
-      }
 
-      // Fetch user bookings/tickets
-      const { data: bookingsData } = await supabase
-        .from("bookings")
-        .select("*, event:events(*)")
-        .eq("user_email", session.user.email)
-        .order("created_at", { ascending: false });
-        
-      if (bookingsData) {
-        setTickets(bookingsData);
-      }
+        // Fetch user bookings/tickets
+        const { data: bookingsData } = await supabase
+          .from("bookings")
+          .select("*, event:events(*)")
+          .eq("user_email", session.user.email)
+          .order("created_at", { ascending: false });
+          
+        if (bookingsData) {
+          setTickets(bookingsData);
+        }
 
-      // Fetch issued tickets / passes with QR codes
-      const { data: issuedData } = await supabase
-        .from("issued_tickets")
-        .select("*")
-        .eq("holder_email", session.user.email)
-        .order("ticket_number", { ascending: true });
+        // Fetch issued tickets / passes with QR codes
+        const { data: issuedData } = await supabase
+          .from("issued_tickets")
+          .select("*")
+          .eq("holder_email", session.user.email)
+          .order("ticket_number", { ascending: true });
 
-      if (issuedData) {
-        const map: Record<string, any[]> = {};
-        issuedData.forEach((pass) => {
-          if (!map[pass.booking_id]) map[pass.booking_id] = [];
-          map[pass.booking_id].push(pass);
-        });
-        setIssuedTicketsMap(map);
+        if (issuedData) {
+          const map: Record<string, any[]> = {};
+          issuedData.forEach((pass) => {
+            if (!map[pass.booking_id]) map[pass.booking_id] = [];
+            map[pass.booking_id].push(pass);
+          });
+          setIssuedTicketsMap(map);
+        }
       }
 
       setLoading(false);
@@ -110,7 +125,7 @@ export default function MyAccountPage() {
     
     loadData();
 
-    // Supabase Realtime Subscription for Instant Ticket Updates
+    // Supabase Realtime Subscription for Instant Updates
     const channel = supabase
       .channel("account-tickets-realtime")
       .on(
@@ -123,6 +138,13 @@ export default function MyAccountPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "issued_tickets" },
+        () => {
+          loadData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
         () => {
           loadData();
         }
@@ -149,6 +171,7 @@ export default function MyAccountPage() {
 
     const updates = {
       id: session.user.id,
+      email: session.user.email,
       full_name: fullName,
       phone_number: phoneNumber,
     };
@@ -218,22 +241,35 @@ export default function MyAccountPage() {
                 onClick={() => setActiveTab("profile")}
                 className={`pb-4 px-4 text-sm font-medium transition ${
                   activeTab === "profile" 
-                    ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400" 
+                    ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                     : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
                 }`}
               >
                 Complete Profile
               </button>
-              <button
-                onClick={() => setActiveTab("tickets")}
-                className={`pb-4 px-4 text-sm font-medium transition ${
-                  activeTab === "tickets" 
-                    ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400" 
-                    : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-                }`}
-              >
-                My Tickets
-              </button>
+              {role === 'organizer' ? (
+                <button
+                  onClick={() => setActiveTab("events")}
+                  className={`pb-4 px-4 text-sm font-medium transition ${
+                    activeTab === "events" 
+                      ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
+                      : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                  }`}
+                >
+                  My Events ({organizerEvents.length})
+                </button>
+              ) : (
+                <button
+                  onClick={() => setActiveTab("tickets")}
+                  className={`pb-4 px-4 text-sm font-medium transition ${
+                    activeTab === "tickets" 
+                      ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
+                      : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                  }`}
+                >
+                  My Tickets ({tickets.length})
+                </button>
+              )}
             </div>
 
             {/* Profile Content */}
@@ -354,8 +390,261 @@ export default function MyAccountPage() {
               </div>
             )}
 
-            {/* Tickets Content */}
-            {activeTab === "tickets" && (
+            {/* Organizer Hosted Events Content */}
+            {role === "organizer" && activeTab === "events" && (
+              <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-neutral-900 dark:text-white">My Hosted Events</h2>
+                    <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                      Manage and track events assigned to your organizer account.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => router.push("/organizer/bookings")}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition"
+                  >
+                    <span>📋 Manage Bookings & Scanner ➔</span>
+                  </button>
+                </div>
+
+                {organizerEvents.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 mb-4 text-2xl">
+                      🎪
+                    </div>
+                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-1">No Hosted Events Yet</h3>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm max-w-md mx-auto mb-4">
+                      When the administrator creates or assigns an event to your organizer account, it will appear here instantly.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {organizerEvents.map((evt) => (
+                      <div 
+                        key={evt.id}
+                        onClick={() => setSelectedEventModal(evt)}
+                        className="group cursor-pointer border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden bg-white dark:bg-neutral-900 shadow-sm hover:shadow-md hover:border-indigo-500/50 dark:hover:border-indigo-500/50 transition flex flex-col"
+                      >
+                        <div className="relative aspect-video w-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                          {evt.image_url ? (
+                            <img 
+                              src={evt.image_url} 
+                              alt={evt.title} 
+                              className="h-full w-full object-cover group-hover:scale-105 transition duration-300" 
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-3xl font-black text-neutral-300 dark:text-neutral-700">
+                              EVENT
+                            </div>
+                          )}
+                          <span className={`absolute top-3 left-3 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm ${
+                            evt.status === 'published' 
+                              ? 'bg-green-500 text-white' 
+                              : 'bg-amber-500 text-white'
+                          }`}>
+                            {evt.status || 'Draft'}
+                          </span>
+                          {evt.event_number && (
+                            <span className="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-white border border-white/20">
+                              #{evt.event_number}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="p-5 flex-1 flex flex-col justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                              {evt.category || "General Event"}
+                            </span>
+                            <h3 className="mt-1 font-bold text-base text-neutral-900 dark:text-white line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                              {evt.title}
+                            </h3>
+
+                            <div className="mt-3 space-y-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                              <p className="flex items-center gap-2">
+                                <span>📅</span>
+                                <span>{evt.start_date ? new Date(evt.start_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : "Date TBD"}</span>
+                              </p>
+                              <p className="flex items-center gap-2">
+                                <span>📍</span>
+                                <span className="line-clamp-1">{evt.venue_name ? `${evt.venue_name}${evt.city ? `, ${evt.city}` : ''}` : (evt.location || "Location TBD")}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEventModal(evt);
+                              }}
+                              className="flex-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 py-2 text-xs font-semibold text-neutral-900 dark:text-white text-center transition"
+                            >
+                              View Details
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push("/organizer/bookings");
+                              }}
+                              className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 py-2 text-xs font-semibold text-white text-center transition"
+                            >
+                              Bookings
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Event Details Modal */}
+            {selectedEventModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+                  {selectedEventModal.image_url && (
+                    <div className="relative aspect-video w-full rounded-2xl overflow-hidden mb-6 bg-neutral-100 dark:bg-neutral-800">
+                      <img src={selectedEventModal.image_url} alt={selectedEventModal.title} className="w-full h-full object-cover" />
+                      <span className={`absolute top-3 left-3 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+                        selectedEventModal.status === 'published' ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'
+                      }`}>
+                        {selectedEventModal.status || 'Draft'}
+                      </span>
+                      {selectedEventModal.event_number && (
+                        <span className="absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-white">
+                          Event #{selectedEventModal.event_number}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                        {selectedEventModal.category || "General Event"}
+                      </span>
+                      <h2 className="text-2xl font-extrabold text-neutral-900 dark:text-white mt-1">
+                        {selectedEventModal.title}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => setSelectedEventModal(null)}
+                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white p-1 rounded-lg"
+                    >
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800">
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-400 uppercase">Starts</p>
+                      <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
+                        {selectedEventModal.start_date ? new Date(selectedEventModal.start_date).toLocaleString() : "TBD"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-400 uppercase">Ends</p>
+                      <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
+                        {selectedEventModal.end_date ? new Date(selectedEventModal.end_date).toLocaleString() : "TBD"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-400 uppercase">Venue</p>
+                      <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
+                        {selectedEventModal.venue_name || selectedEventModal.location || "TBD"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-400 uppercase">City / Address</p>
+                      <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
+                        {selectedEventModal.address ? `${selectedEventModal.address}, ` : ''}{selectedEventModal.city || "Pakistan"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-400 uppercase">Audience Restriction</p>
+                      <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
+                        {selectedEventModal.is_student_only ? "Students Only (ID Required)" : "Open to Everyone"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-400 uppercase">Max Tickets Per Person</p>
+                      <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
+                        {selectedEventModal.max_tickets_per_person || 3}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Ticket Tiers */}
+                  <div className="mt-6">
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-2">Ticket Tiers / Pricing</h3>
+                    <div>
+                      {(() => {
+                        let tiers = [];
+                        try {
+                          if (selectedEventModal.ticket_price) {
+                            const parsed = typeof selectedEventModal.ticket_price === 'string' ? JSON.parse(selectedEventModal.ticket_price) : selectedEventModal.ticket_price;
+                            if (Array.isArray(parsed)) tiers = parsed;
+                          }
+                        } catch(e) {}
+
+                        if (tiers.length === 0) {
+                          return <p className="text-xs text-neutral-500">Free / Standard pricing</p>;
+                        }
+
+                        return (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {tiers.map((t: any, i: number) => (
+                              <div key={i} className="p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+                                <p className="text-xs text-neutral-500 font-medium">{t.name || "Tier"}</p>
+                                <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">Rs. {Number(t.price || 0).toLocaleString()}</p>
+                                {t.total && <p className="text-[11px] text-neutral-400">Capacity: {t.total}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {selectedEventModal.description && (
+                    <div className="mt-6">
+                      <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-1">About This Event</h3>
+                      <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed whitespace-pre-line">
+                        {selectedEventModal.description}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-8 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => {
+                        setSelectedEventModal(null);
+                        router.push("/organizer/bookings");
+                      }}
+                      className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-3 text-sm font-bold text-white shadow-sm transition text-center"
+                    >
+                      Manage Bookings & QR Scanner ➔
+                    </button>
+                    <button
+                      onClick={() => setSelectedEventModal(null)}
+                      className="rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 px-6 py-3 text-sm font-semibold text-neutral-700 dark:text-neutral-300 transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tickets Content (Users Only) */}
+            {role !== "organizer" && activeTab === "tickets" && (
               <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
                 <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">My Booked Tickets</h2>
                 

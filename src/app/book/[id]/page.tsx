@@ -35,6 +35,7 @@ export default function BookTicketPage() {
 
   // Form State
   const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [ticketType, setTicketType] = useState("");
   const [numberOfTickets, setNumberOfTickets] = useState(1);
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
@@ -58,6 +59,21 @@ export default function BookTicketPage() {
         return;
       }
       setSession(session);
+
+      // Pre-fill user details from users table or metadata
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('full_name, phone_number')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (userProfile) {
+        if (userProfile.full_name) setFullName(userProfile.full_name);
+        else if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
+        if (userProfile.phone_number) setPhoneNumber(userProfile.phone_number);
+      } else if (session.user.user_metadata?.full_name) {
+        setFullName(session.user.user_metadata.full_name);
+      }
 
       let query = supabase.from('events').select('*');
       const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
@@ -112,6 +128,12 @@ export default function BookTicketPage() {
     setSubmitting(true);
     setErrorMsg("");
     
+    if (!phoneNumber || !/^\d{11}$/.test(phoneNumber.trim())) {
+      setErrorMsg("Please provide a valid 11-digit phone number (e.g. 03001234567).");
+      setSubmitting(false);
+      return;
+    }
+
     if (!paymentScreenshot) {
       setErrorMsg("Payment screenshot is required.");
       setSubmitting(false);
@@ -167,8 +189,8 @@ export default function BookTicketPage() {
       const payload = {
         event_id: event?.id || id,
         user_email: session.user.email,
-        full_name: fullName,
-        phone_number: session.user.user_metadata?.phone_number || "",
+        full_name: fullName.trim(),
+        phone_number: phoneNumber.trim(),
         ticket_type: ticketType,
         number_of_tickets: numberOfTickets,
         payment_screenshot_url: paymentScreenshotUrl,
@@ -178,6 +200,18 @@ export default function BookTicketPage() {
 
       const { error: insertError } = await supabase.from('bookings').insert([payload]);
       if (insertError) throw insertError;
+
+      // Ensure user profile has phone_number and full_name saved in users table
+      try {
+        await supabase.from('users').upsert({
+          id: session.user.id,
+          email: session.user.email,
+          full_name: fullName.trim(),
+          phone_number: phoneNumber.trim(),
+        }, { onConflict: 'id' });
+      } catch (profileErr) {
+        console.error("Failed to update users profile with phone number:", profileErr);
+      }
 
       setSuccess(true);
     } catch (err: any) {
@@ -283,6 +317,20 @@ export default function BookTicketPage() {
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Full Name *</label>
               <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Ali Khan" className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                Phone Number * <span className="text-xs text-neutral-400">(11 digits, e.g. 03001234567)</span>
+              </label>
+              <input 
+                type="tel" 
+                required 
+                value={phoneNumber} 
+                onChange={e => setPhoneNumber(e.target.value)} 
+                placeholder="03XXXXXXXXX" 
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

@@ -4,8 +4,9 @@
 -- =========================================================================
 
 -- 1. Ensure organizers table has all required columns
-ALTER TABLE public.organizers ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE public.organizers ADD COLUMN IF NOT EXISTS full_name text;
 ALTER TABLE public.organizers ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE public.organizers ADD COLUMN IF NOT EXISTS phone_number text;
 ALTER TABLE public.organizers ADD COLUMN IF NOT EXISTS organizer_number serial;
 
 -- 2. Ensure users table has all required columns
@@ -80,7 +81,8 @@ WITH CHECK (auth.uid() = id);
 CREATE OR REPLACE FUNCTION public.promote_user_to_organizer(
   target_user_id uuid,
   target_name text DEFAULT NULL,
-  target_email text DEFAULT NULL
+  target_email text DEFAULT NULL,
+  target_phone text DEFAULT NULL
 )
 RETURNS json
 LANGUAGE plpgsql
@@ -89,21 +91,24 @@ AS $$
 DECLARE
   v_name text;
   v_email text;
+  v_phone text;
 BEGIN
   -- Retrieve user info if not passed directly
-  SELECT full_name, email INTO v_name, v_email
+  SELECT full_name, email, phone_number INTO v_name, v_email, v_phone
   FROM public.users
   WHERE id = target_user_id;
 
   v_name := COALESCE(target_name, v_name, 'Organizer');
   v_email := COALESCE(target_email, v_email, '');
+  v_phone := COALESCE(target_phone, v_phone, '');
 
   -- Insert or update organizers
-  INSERT INTO public.organizers (id, name, email)
-  VALUES (target_user_id, v_name, v_email)
+  INSERT INTO public.organizers (id, full_name, email, phone_number)
+  VALUES (target_user_id, v_name, v_email, v_phone)
   ON CONFLICT (id) DO UPDATE SET
-    name = EXCLUDED.name,
-    email = EXCLUDED.email;
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone_number = EXCLUDED.phone_number;
 
   -- Delete from users
   DELETE FROM public.users WHERE id = target_user_id;
@@ -123,18 +128,20 @@ AS $$
 DECLARE
   v_name text;
   v_email text;
+  v_phone text;
 BEGIN
   -- Retrieve organizer info
-  SELECT name, email INTO v_name, v_email
+  SELECT full_name, email, phone_number INTO v_name, v_email, v_phone
   FROM public.organizers
   WHERE id = target_user_id;
 
   -- Insert into users
-  INSERT INTO public.users (id, full_name, email)
-  VALUES (target_user_id, COALESCE(v_name, 'User'), COALESCE(v_email, ''))
+  INSERT INTO public.users (id, full_name, email, phone_number)
+  VALUES (target_user_id, COALESCE(v_name, 'User'), COALESCE(v_email, ''), v_phone)
   ON CONFLICT (id) DO UPDATE SET
     full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email;
+    email = EXCLUDED.email,
+    phone_number = EXCLUDED.phone_number;
 
   -- Delete from organizers
   DELETE FROM public.organizers WHERE id = target_user_id;
@@ -144,5 +151,5 @@ END;
 $$;
 
 -- 9. Grant Execute Permissions
-GRANT EXECUTE ON FUNCTION public.promote_user_to_organizer(uuid, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.promote_user_to_organizer(uuid, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.demote_organizer_to_user(uuid) TO authenticated;
