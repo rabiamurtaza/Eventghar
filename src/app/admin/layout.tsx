@@ -19,6 +19,7 @@ export default function AdminLayout({
   const [adminProfile, setAdminProfile] = useState<any>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [pendingBookingsCount, setPendingBookingsCount] = useState(0);
+  const [pendingMessagesCount, setPendingMessagesCount] = useState(0);
 
   useEffect(() => {
     async function checkAdmin() {
@@ -71,6 +72,17 @@ export default function AdminLayout({
         setPendingBookingsCount(bCount);
       }
 
+      // Fetch pending contact messages count
+      try {
+        const { count: mCount } = await supabase
+          .from('contact_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        if (mCount !== null) {
+          setPendingMessagesCount(mCount);
+        }
+      } catch (e) {}
+
       setLoading(false);
     }
     checkAdmin();
@@ -111,6 +123,7 @@ export default function AdminLayout({
     { label: "Users & Organizers", href: "/admin/organizers" },
     { label: "Manage Bookings", href: "/admin/bookings" },
     { label: "Event Requests", href: "/admin/requests" },
+    { label: "Contact Inquiries", href: "/admin/messages" },
   ];
 
   return (
@@ -164,6 +177,11 @@ export default function AdminLayout({
                 {item.label === "Manage Bookings" && pendingBookingsCount > 0 && (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[11px] font-bold text-white shadow-sm">
                     {pendingBookingsCount}
+                  </span>
+                )}
+                {item.label === "Contact Inquiries" && pendingMessagesCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[11px] font-bold text-white shadow-sm">
+                    {pendingMessagesCount}
                   </span>
                 )}
               </Link>
