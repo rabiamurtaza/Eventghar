@@ -25,13 +25,48 @@ export async function GET(request: Request) {
           supabase.from('organizers').select('id').eq('id', user.id).maybeSingle(),
         ])
 
+        // Extract the best name provided by Google OAuth
+        const rawName = (
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.user_metadata?.display_name ||
+          [user.user_metadata?.given_name, user.user_metadata?.family_name].filter(Boolean).join(' ') ||
+          user.email?.split('@')[0] ||
+          'User'
+        ).trim();
+
         if (!adminRes.data && !orgRes.data) {
-          // Record as normal user in public.users if not already exists
-          await supabase.from('users').upsert({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-          }, { onConflict: 'id', ignoreDuplicates: true })
+          // Check if record already exists in public.users
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('id, full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (!existingUser) {
+            await supabase.from('users').insert({
+              id: user.id,
+              email: user.email || '',
+              full_name: rawName,
+            });
+          } else if ((!existingUser.full_name || existingUser.full_name === 'User') && rawName !== 'User') {
+            await supabase.from('users').update({
+              full_name: rawName,
+            }).eq('id', user.id);
+          }
+        } else if (orgRes.data) {
+          // If organizer exists with empty name, update with Google name
+          const { data: existingOrg } = await supabase
+            .from('organizers')
+            .select('id, full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (existingOrg && (!existingOrg.full_name || existingOrg.full_name === 'User') && rawName !== 'User') {
+            await supabase.from('organizers').update({
+              full_name: rawName,
+            }).eq('id', user.id);
+          }
         }
       } catch (err) {
         console.error('Error syncing user profile on login:', err)

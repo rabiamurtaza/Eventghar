@@ -60,7 +60,10 @@ export default function BookTicketPage() {
       }
       setSession(session);
 
-      // Pre-fill user details from users table or metadata
+      // Pre-fill user details from users or organizers table or metadata
+      let fetchedName = "";
+      let fetchedPhone = "";
+
       const { data: userProfile } = await supabase
         .from('users')
         .select('full_name, phone_number')
@@ -68,12 +71,30 @@ export default function BookTicketPage() {
         .maybeSingle();
 
       if (userProfile) {
-        if (userProfile.full_name) setFullName(userProfile.full_name);
-        else if (session.user.user_metadata?.full_name) setFullName(session.user.user_metadata.full_name);
-        if (userProfile.phone_number) setPhoneNumber(userProfile.phone_number);
-      } else if (session.user.user_metadata?.full_name) {
-        setFullName(session.user.user_metadata.full_name);
+        fetchedName = userProfile.full_name || "";
+        fetchedPhone = userProfile.phone_number || "";
+      } else {
+        const { data: orgProfile } = await supabase
+          .from('organizers')
+          .select('full_name, phone_number')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        if (orgProfile) {
+          fetchedName = orgProfile.full_name || "";
+          fetchedPhone = orgProfile.phone_number || "";
+        }
       }
+
+      if (!fetchedName) {
+        fetchedName = session.user.user_metadata?.full_name || 
+                      session.user.user_metadata?.name || 
+                      session.user.user_metadata?.display_name || 
+                      session.user.email?.split('@')[0] || 
+                      "User";
+      }
+
+      setFullName(fetchedName);
+      if (fetchedPhone) setPhoneNumber(fetchedPhone);
 
       let query = supabase.from('events').select('*');
       const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
@@ -314,9 +335,31 @@ export default function BookTicketPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Full Name *</label>
-              <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Ali Khan" className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+            {/* Account Information (Read-only from account) */}
+            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-950">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Booking Ticket Holder</span>
+                <Link 
+                  href="/my-account" 
+                  target="_blank" 
+                  className="text-xs font-semibold text-green-600 dark:text-green-400 hover:underline"
+                >
+                  Edit Name in My Account ↗
+                </Link>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-400 font-bold text-sm">
+                  {fullName ? fullName.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-neutral-900 dark:text-white truncate">
+                    {fullName || session?.user?.email?.split('@')[0] || "User"}
+                  </p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                    {session?.user?.email}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div>

@@ -153,3 +153,82 @@ $$;
 -- 9. Grant Execute Permissions
 GRANT EXECUTE ON FUNCTION public.promote_user_to_organizer(uuid, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.demote_organizer_to_user(uuid) TO authenticated;
+
+-- 10. Storage Buckets Creation (payment-screenshots, student-ids, event-images)
+INSERT INTO storage.buckets (id, name, public)
+VALUES 
+  ('payment-screenshots', 'payment-screenshots', true),
+  ('student-ids', 'student-ids', true),
+  ('event-images', 'event-images', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Storage Policies for Public Reading and Uploading
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public Access'
+  ) THEN
+    CREATE POLICY "Public Access"
+    ON storage.objects FOR SELECT
+    USING (bucket_id IN ('payment-screenshots', 'student-ids', 'event-images'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public Upload Access'
+  ) THEN
+    CREATE POLICY "Public Upload Access"
+    ON storage.objects FOR INSERT
+    WITH CHECK (bucket_id IN ('payment-screenshots', 'student-ids', 'event-images'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public Update Access'
+  ) THEN
+    CREATE POLICY "Public Update Access"
+    ON storage.objects FOR UPDATE
+    USING (bucket_id IN ('payment-screenshots', 'student-ids', 'event-images'));
+  END IF;
+END $$;
+
+-- 11. Contact Messages Table for Support
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone_number TEXT NOT NULL,
+  category TEXT NOT NULL,
+  message TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'contact_messages' AND policyname = 'Allow public insert on contact_messages'
+  ) THEN
+    CREATE POLICY "Allow public insert on contact_messages"
+    ON public.contact_messages FOR INSERT
+    WITH CHECK (true);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'contact_messages' AND policyname = 'Allow admins select on contact_messages'
+  ) THEN
+    CREATE POLICY "Allow admins select on contact_messages"
+    ON public.contact_messages FOR SELECT
+    USING (auth.uid() IN (SELECT id FROM public.admins));
+  END IF;
+END $$;
+

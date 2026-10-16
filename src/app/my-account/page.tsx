@@ -87,10 +87,18 @@ export default function MyAccountPage() {
           .single();
           
         setRole("user");
-        setAccountNumber(userData?.user_number || null);
-        setFullName(userData?.full_name || session.user.user_metadata?.full_name || "");
+        const resolvedName = userData?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || "";
+        setFullName(resolvedName);
         setPhoneNumber(userData?.phone_number || "");
         if (!userData?.phone_number) setIsEditingProfile(true);
+
+        if (!userData?.full_name && resolvedName) {
+          await supabase.from("users").upsert({
+            id: session.user.id,
+            email: session.user.email || "",
+            full_name: resolvedName,
+          }, { onConflict: "id" });
+        }
 
         // Fetch user bookings/tickets
         const { data: bookingsData } = await supabase
