@@ -69,8 +69,8 @@ export default function Navbar() {
   };
 
   const handleLoggedOutRequestEvent = () => {
-    alert("Please log in first to request an event.");
-    router.push("/login");
+    const msg = encodeURIComponent("Please log in or create an account first to request an event.");
+    router.push(`/login?redirect=${encodeURIComponent('/book-event')}&message=${msg}`);
   };
 
   return (
@@ -80,9 +80,9 @@ export default function Navbar() {
         <div className="flex items-center">
           <Link
             href="/"
-            className="flex items-center gap-2 text-xl font-bold tracking-tight text-white transition hover:opacity-90"
+            className="flex items-center gap-2 text-lg sm:text-xl font-bold tracking-tight text-white transition hover:opacity-90"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white shadow-md shadow-indigo-500/20">
+            <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 text-white shadow-md shadow-indigo-500/20">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -91,7 +91,7 @@ export default function Navbar() {
                 strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-5 w-5"
+                className="h-4 w-4 sm:h-5 sm:w-5"
               >
                 <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
                 <line x1="16" x2="16" y1="2" y2="6" />
@@ -106,27 +106,27 @@ export default function Navbar() {
         </div>
 
         {/* Right Side Options */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-4">
           {/* Explore Option */}
           <Link
             href="/#events"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
+            className="rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-white transition hover:bg-neutral-800 whitespace-nowrap"
           >
             Explore
           </Link>
 
-          {/* Request an Event Option */}
+          {/* Request an Event Option (Visible on all devices) */}
           {session ? (
             <Link
               href="/book-event"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 hidden sm:block"
+              className="rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-white transition hover:bg-neutral-800 whitespace-nowrap"
             >
               Request an Event
             </Link>
           ) : (
             <button 
               onClick={handleLoggedOutRequestEvent}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 hidden sm:block"
+              className="rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-white transition hover:bg-neutral-800 whitespace-nowrap"
             >
               Request an Event
             </button>
@@ -201,6 +201,16 @@ export default function Navbar() {
                         Admin Control
                       </Link>
                     )}
+                    <Link
+                      href="/book-event"
+                      onClick={() => setIsUserOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-purple-400">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      Request an Event
+                    </Link>
                     <button
                       onClick={handleSignOut}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-400 transition hover:bg-neutral-800 hover:text-red-300 mt-1"
@@ -240,6 +250,18 @@ export default function Navbar() {
                       </svg>
                       Sign Up
                     </Link>
+                    <button
+                      onClick={() => {
+                        setIsUserOpen(false);
+                        handleLoggedOutRequestEvent();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 text-left mt-1 border-t border-neutral-800 pt-2"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-purple-400">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      Request an Event
+                    </button>
                   </>
                 )}
               </div>
