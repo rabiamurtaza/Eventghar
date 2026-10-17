@@ -316,7 +316,9 @@ export default function BookTicketPage() {
   const selectedTicket = ticketOptions.find(t => t.name === ticketType);
   const pricePerTicket = selectedTicket ? parseInt(selectedTicket.price || '0') : 0;
   const totalPrice = isNaN(pricePerTicket) ? 0 : pricePerTicket * numberOfTickets;
-  const maxAllowedTickets = event?.is_student_only ? 1 : Math.min(3, event?.max_tickets_per_person || 3);
+  const maxAllowedTickets = (event?.is_student_only === true || event?.is_student_only === 'true')
+    ? 1 
+    : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3));
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -647,39 +649,91 @@ export default function BookTicketPage() {
                 )}
               </div>
 
-              {/* Number of Tickets Stepper */}
+              {/* Number of Tickets Selection */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                  Number of Tickets *
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                    Number of Tickets *
+                  </label>
+                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                    {(event?.is_student_only === true || event?.is_student_only === 'true')
+                      ? "Student Event (Limit 1)" 
+                      : `Max ${maxAllowedTickets} tickets`}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Discrete Quick Select Pills */}
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: maxAllowedTickets }, (_, i) => i + 1).map((qty) => {
+                      const isSelected = numberOfTickets === qty;
+                      return (
+                        <button
+                          key={qty}
+                          type="button"
+                          onClick={() => setNumberOfTickets(qty)}
+                          className={`h-11 px-4 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                            isSelected
+                              ? "bg-emerald-600 text-white shadow-emerald-600/30 ring-2 ring-emerald-500/50 scale-[1.02]"
+                              : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400"
+                          }`}
+                        >
+                          <span className="text-base">{qty}</span>
+                          <span className="text-xs font-normal opacity-90">{qty === 1 ? "Ticket" : "Tickets"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Dual Stepper with Editable Numeric Input */}
+                  <div className="flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 overflow-hidden h-11 ml-auto sm:ml-0">
                     <button
                       type="button"
+                      aria-label="Decrease tickets"
                       disabled={numberOfTickets <= 1}
-                      onClick={() => setNumberOfTickets(prev => Math.max(1, prev - 1))}
-                      className="px-3.5 py-2.5 text-base font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition disabled:opacity-30 cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setNumberOfTickets((prev) => Math.max(1, prev - 1));
+                      }}
+                      className="w-10 h-full flex items-center justify-center text-lg font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition disabled:opacity-25 cursor-pointer"
                     >
                       −
                     </button>
-                    <span className="w-12 text-center text-sm font-bold text-neutral-900 dark:text-white">
-                      {numberOfTickets}
-                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={maxAllowedTickets}
+                      value={numberOfTickets}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) {
+                          setNumberOfTickets(Math.min(maxAllowedTickets, Math.max(1, val)));
+                        }
+                      }}
+                      className="w-12 text-center text-sm font-bold text-neutral-900 dark:text-white bg-transparent border-0 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
                     <button
                       type="button"
+                      aria-label="Increase tickets"
                       disabled={numberOfTickets >= maxAllowedTickets}
-                      onClick={() => setNumberOfTickets(prev => Math.min(maxAllowedTickets, prev + 1))}
-                      className="px-3.5 py-2.5 text-base font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition disabled:opacity-30 cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setNumberOfTickets((prev) => Math.min(maxAllowedTickets, prev + 1));
+                      }}
+                      className="w-10 h-full flex items-center justify-center text-lg font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition disabled:opacity-25 cursor-pointer"
                     >
                       +
                     </button>
                   </div>
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {event?.is_student_only 
-                      ? "(Max 1 ticket per student account)" 
-                      : `(Max ${maxAllowedTickets} tickets per booking)`}
-                  </span>
                 </div>
+
+                <p className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {(event?.is_student_only === true || event?.is_student_only === 'true')
+                    ? "Limited to 1 ticket per student account as required by event rules."
+                    : "Select 1, 2, or 3 tickets. Each attendee ticket will receive its own verified QR code."}
+                </p>
               </div>
 
               {/* Order Cost Breakdown Box */}
