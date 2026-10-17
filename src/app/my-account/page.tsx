@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import TicketPassCard from "@/components/TicketPassCard";
-import LiveIndicator from "@/components/LiveIndicator";
 
 export default function MyAccountPage() {
   const [activeTab, setActiveTab] = useState<"profile" | "tickets" | "events">("profile");
@@ -213,18 +212,8 @@ export default function MyAccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 py-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="h-8 bg-neutral-200 dark:bg-neutral-800 rounded-lg w-40 animate-pulse" />
-            <LiveIndicator />
-          </div>
-          <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 space-y-4 animate-pulse">
-            <div className="h-6 bg-neutral-200 dark:bg-neutral-800 rounded w-1/4" />
-            <div className="h-12 bg-neutral-100 dark:bg-neutral-800/50 rounded-xl" />
-            <div className="h-12 bg-neutral-100 dark:bg-neutral-800/50 rounded-xl" />
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <p className="text-neutral-500">Loading your account...</p>
       </div>
     );
   }
@@ -232,75 +221,69 @@ export default function MyAccountPage() {
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 py-10">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">My Account</h1>
-          <LiveIndicator />
-        </div>
+        <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-8">My Account</h1>
         
         {role === 'admin' ? (
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 p-8 sm:p-12 shadow-sm text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 mb-6 text-emerald-600 dark:text-emerald-400">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+          <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-8 sm:p-12 shadow-sm text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30 mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-indigo-600 dark:text-indigo-400">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-black text-neutral-900 dark:text-white mb-2">Administrator Console Access</h2>
-            <p className="text-neutral-500 dark:text-neutral-400 mb-8 max-w-md mx-auto text-sm leading-relaxed">
-              You are signed in as an administrator. Manage published events, inbound host requests, and gate scanners directly from the admin dashboard.
+            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Administrator Account</h2>
+            <p className="text-neutral-500 dark:text-neutral-400 mb-8 max-w-md mx-auto">
+              You are logged in as an admin. Regular profile and ticketing features are disabled for administrative accounts.
             </p>
             <button 
-              onClick={() => router.push("/admin")}
-              className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-xs font-bold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-600 hover:to-emerald-700 transition"
+              onClick={() => router.push("/admin/create-event")}
+              className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition"
             >
-              Go to Admin Dashboard ➔
+              Go to Admin Dashboard
             </button>
           </div>
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-8 gap-2">
+            <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-8">
               <button
                 onClick={() => setActiveTab("profile")}
-                className={`pb-4 px-4 text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+                className={`pb-4 px-4 text-sm font-medium transition ${
                   activeTab === "profile" 
-                    ? "border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold" 
+                    ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                     : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
                 }`}
               >
-                <span>👤</span>
-                <span>Profile Settings</span>
+                Complete Profile
               </button>
               {role === 'organizer' ? (
                 <button
                   onClick={() => setActiveTab("events")}
-                  className={`pb-4 px-4 text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+                  className={`pb-4 px-4 text-sm font-medium transition ${
                     activeTab === "events" 
-                      ? "border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold" 
+                      ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                       : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
                   }`}
                 >
-                  <span>🎪</span>
-                  <span>Hosted Events ({organizerEvents.length})</span>
+                  My Events ({organizerEvents.length})
                 </button>
               ) : (
                 <button
                   onClick={() => setActiveTab("tickets")}
-                  className={`pb-4 px-4 text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+                  className={`pb-4 px-4 text-sm font-medium transition ${
                     activeTab === "tickets" 
-                      ? "border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold" 
+                      ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                       : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
                   }`}
                 >
-                  <span>🎟️</span>
-                  <span>My Digital Passes ({tickets.length})</span>
+                  My Tickets ({tickets.length})
                 </button>
               )}
             </div>
 
             {/* Profile Content */}
             {activeTab === "profile" && (
-              <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
-                <h2 className="text-xl font-black text-neutral-900 dark:text-white mb-6">Profile & Identity</h2>
+              <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">Profile Information</h2>
                 
                 {profileMessage && (
                   <div className={`p-4 mb-6 rounded-lg text-sm ${
@@ -333,26 +316,26 @@ export default function MyAccountPage() {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="John Doe" 
-                        className="mt-1 block w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition" 
+                        className="mt-1 block w-full rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-neutral-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">Phone Number (11 digits)</label>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Phone Number</label>
                       <input 
                         type="tel" 
                         required 
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="03XXXXXXXXX" 
-                        className="mt-1 block w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition" 
+                        className="mt-1 block w-full rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-neutral-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
                       />
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                       <button 
                         type="submit"
-                        className="flex-1 sm:flex-none rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:from-emerald-600 hover:to-emerald-700 transition cursor-pointer"
+                        className="flex-1 sm:flex-none rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 dark:focus:ring-offset-black transition"
                       >
                         Save Profile
                       </button>
@@ -360,7 +343,7 @@ export default function MyAccountPage() {
                         <button 
                           type="button"
                           onClick={() => setIsEditingProfile(false)}
-                          className="flex-1 sm:flex-none rounded-xl bg-neutral-100 dark:bg-neutral-800 px-6 py-2.5 text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition cursor-pointer"
+                          className="flex-1 sm:flex-none rounded-lg bg-neutral-200 dark:bg-neutral-800 px-6 py-2.5 text-sm font-semibold text-neutral-900 dark:text-white shadow-sm hover:bg-neutral-300 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 dark:focus:ring-offset-black transition"
                         >
                           Cancel
                         </button>
@@ -670,33 +653,17 @@ export default function MyAccountPage() {
 
             {/* Tickets Content (Users Only) */}
             {role !== "organizer" && activeTab === "tickets" && (
-              <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-xl font-black text-neutral-900 dark:text-white">My Digital Passes</h2>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      View, download, and present your QR admission codes at the event gates.
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    {tickets.length} Booking{tickets.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
+              <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">My Booked Tickets</h2>
                 
                 {tickets.length === 0 ? (
-                  <div className="text-center py-14 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-2xl">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mb-4 text-2xl">
-                      🎟️
-                    </div>
-                    <h3 className="text-base font-bold text-neutral-900 dark:text-white mb-1">No Tickets Booked Yet</h3>
-                    <p className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm max-w-sm mx-auto mb-5">
-                      Explore our upcoming university events, Sufi nights, and tech summits to reserve your pass.
-                    </p>
+                  <div className="text-center py-10 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+                    <p className="text-neutral-500 dark:text-neutral-400 mb-4">You haven't booked any tickets yet.</p>
                     <button 
                       onClick={() => router.push("/")}
-                      className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-xs font-bold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-600 hover:to-emerald-700 transition cursor-pointer"
+                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition"
                     >
-                      Explore Events Catalog ➔
+                      Explore Events
                     </button>
                   </div>
                 ) : (

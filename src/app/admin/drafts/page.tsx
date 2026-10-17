@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import LiveIndicator from "@/components/LiveIndicator";
 
 export default function DraftsPage() {
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -25,22 +24,6 @@ export default function DraftsPage() {
 
   useEffect(() => {
     fetchDrafts();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel("admin-drafts-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "events" },
-        () => {
-          fetchDrafts();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const handlePublish = async (id: string | number) => {
@@ -88,7 +71,6 @@ export default function DraftsPage() {
               Events you saved but haven&apos;t published yet.
             </p>
           </div>
-          <LiveIndicator />
         </div>
 
         {loading ? (
@@ -131,9 +113,9 @@ export default function DraftsPage() {
                   <div className="mt-auto pt-4 border-t border-neutral-100 dark:border-neutral-800 flex flex-col gap-2">
                     <button 
                       onClick={() => handlePublish(draft.id)}
-                      className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
+                      className="w-full rounded-lg bg-green-500 py-2 text-sm font-medium text-white transition hover:bg-green-600"
                     >
-                      Publish Live Now ➔
+                      Publish Now
                     </button>
                     <div className="flex gap-2">
                       <Link 

@@ -1,5 +1,4 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { uuidv7 } from "@/utils/uuid";
 
 export interface TicketQRPayload {
   app: "EVENT_GHAR";
@@ -68,7 +67,6 @@ export async function generateTicketsForBooking(
     const ticketCode = `EG-${eventPrefix}-${bookingPrefix}${randomHex}-${i}`;
 
     ticketsToInsert.push({
-      id: uuidv7(),
       booking_id: booking.id,
       event_id: booking.event_id,
       ticket_number: i,

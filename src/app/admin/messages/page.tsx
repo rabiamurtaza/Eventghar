@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import LiveIndicator from "@/components/LiveIndicator";
 
 interface ContactMessage {
   id: string;
@@ -139,7 +138,6 @@ export default function AdminContactMessagesPage() {
             View, reply, and resolve messages submitted by users through the Contact Us page.
           </p>
         </div>
-        <LiveIndicator />
       </div>
 
       {/* Stats Cards */}
@@ -265,7 +263,7 @@ export default function AdminContactMessagesPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <span className="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40">
+                        <span className="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40">
                           {msg.category}
                         </span>
                       </td>

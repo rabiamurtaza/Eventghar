@@ -3,17 +3,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
-import { uuidv7 } from "@/utils/uuid";
-import { MessageSquare, Mail, Phone, Clock, CheckCircle2, ShieldCheck, ArrowRight, HelpCircle } from "lucide-react";
-
-const CATEGORIES = [
-  "Payment Verification Issue",
-  "Ticket Access & QR Scanner",
-  "Event Booking Query",
-  "Host an Event / Organizer Inquiry",
-  "Account / Profile Issue",
-  "Other Support"
-];
 
 export default function ContactUsPage() {
   const [fullName, setFullName] = useState("");
@@ -88,7 +77,6 @@ export default function ContactUsPage() {
       // Save contact inquiry in Supabase table
       const { error } = await supabase.from("contact_messages").insert([
         {
-          id: uuidv7(),
           full_name: fullName.trim(),
           email: email.trim(),
           phone_number: phoneNumber.trim(),
@@ -117,33 +105,32 @@ export default function ContactUsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
         
         {/* Header */}
-        <div className="text-center mb-12 sm:mb-16">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 mb-4 shadow-xs">
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>Dedicated Attendee & Host Support</span>
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-black text-neutral-900 dark:text-white tracking-tight">
-            How Can We Help You?
+        <div className="text-center mb-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 mb-3 border border-purple-200 dark:border-purple-800">
+            💬 Customer Support
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            How can we help you?
           </h1>
-          <p className="mt-3 text-sm sm:text-base text-neutral-600 dark:text-neutral-400 max-w-xl mx-auto leading-relaxed">
-            Need assistance with payment verification, your QR digital pass, or host onboarding? Our support desk responds rapidly.
+          <p className="mt-2 text-base text-slate-600 dark:text-neutral-400 max-w-xl mx-auto">
+            Have a question about event tickets, payment verification, or hosting an event? Fill out the form below or reach out to us directly.
           </p>
         </div>
 
         {submitted ? (
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-emerald-200 dark:border-emerald-800/60 p-8 sm:p-14 text-center shadow-lg max-w-xl mx-auto animate-in fade-in duration-300">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-slate-200 dark:border-neutral-800 p-8 sm:p-12 text-center shadow-sm max-w-xl mx-auto animate-in fade-in duration-300">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+              ✓
             </div>
-            <h2 className="text-2xl font-black text-neutral-900 dark:text-white mb-2">
-              Inquiry Dispatched!
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              Message Received!
             </h2>
-            <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed mb-6">
-              Thank you, <span className="font-bold text-neutral-900 dark:text-white">{fullName}</span>. We have logged your request regarding <strong className="text-emerald-600 dark:text-emerald-400">{category}</strong>. Our team will review your message promptly.
+            <p className="text-slate-600 dark:text-neutral-400 text-sm leading-relaxed mb-6">
+              Thank you, <span className="font-semibold text-slate-900 dark:text-white">{fullName}</span>. We have received your inquiry regarding <strong>{category}</strong>. Our support team will get in touch with you shortly.
             </p>
 
             <div className="space-y-3 pt-2">
@@ -151,117 +138,96 @@ export default function ContactUsPage() {
                 href={`https://wa.me/923000000000?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3.5 text-xs font-bold text-white transition hover:from-emerald-600 hover:to-emerald-700 shadow-lg shadow-emerald-500/25"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 px-5 py-3 text-sm font-bold text-white transition shadow-sm"
               >
                 <span>💬</span>
-                <span>Chat Instantly on WhatsApp for Urgent Inquiries</span>
+                <span>Chat on WhatsApp for Urgent Help</span>
               </a>
 
               <Link
                 href="/"
-                className="w-full block rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800 px-5 py-3 text-xs font-semibold text-neutral-700 dark:text-neutral-300 transition"
+                className="w-full block rounded-xl border border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-800 px-5 py-3 text-sm font-semibold text-slate-700 dark:text-neutral-300 transition"
               >
-                Return to Events Home
+                Back to Home
               </Link>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             
-            {/* Left: Contact Info Sidebar (5 cols) */}
-            <div className="lg:col-span-5 space-y-6">
-              
-              {/* Direct Channels Card */}
-              <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 p-6 shadow-sm">
-                <h3 className="font-bold text-sm uppercase tracking-wider text-neutral-400 mb-5">
-                  Direct Contact Channels
+            {/* Left: Contact Info Sidebar */}
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-slate-200 dark:border-neutral-800 p-6 shadow-sm">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white mb-4">
+                  Direct Channels
                 </h3>
                 
-                <div className="space-y-4">
-                  {/* WhatsApp */}
-                  <a 
-                    href={`https://wa.me/923000000000?text=${encodeURIComponent("Hello Event Ghar Support, I need assistance with an event.")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-3.5 p-3.5 rounded-2xl border border-neutral-100 dark:border-neutral-800 hover:border-emerald-500/50 bg-neutral-50/50 dark:bg-neutral-950/50 transition group"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-bold">
-                      💬
+                <div className="space-y-4 text-sm">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">💬</span>
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">WhatsApp Support</p>
+                      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Instant help for ticket & gate issues</p>
+                      <a 
+                        href={`https://wa.me/923000000000?text=${encodeURIComponent("Hello Event Ghar Support, I need help with an issue.")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline mt-1 inline-block"
+                      >
+                        Start WhatsApp Chat ➔
+                      </a>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-neutral-900 dark:text-white">WhatsApp Live Chat</p>
-                        <span className="text-[10px] font-bold text-emerald-600 group-hover:translate-x-0.5 transition-transform">➔</span>
-                      </div>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Fastest reply for payment & gate questions</p>
-                    </div>
-                  </a>
+                  </div>
 
-                  {/* Email */}
-                  <a 
-                    href="mailto:support@eventghar.pk" 
-                    className="flex items-start gap-3.5 p-3.5 rounded-2xl border border-neutral-100 dark:border-neutral-800 hover:border-blue-500/50 bg-neutral-50/50 dark:bg-neutral-950/50 transition group"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
-                      <Mail className="w-5 h-5" />
+                  <div className="flex items-start gap-3 pt-3 border-t border-slate-100 dark:border-neutral-800">
+                    <span className="text-xl">✉️</span>
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">Email Us</p>
+                      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Support & event inquiries</p>
+                      <a 
+                        href="mailto:support@eventghar.pk" 
+                        className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline mt-1 inline-block"
+                      >
+                        support@eventghar.pk
+                      </a>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-neutral-900 dark:text-white">Official Support Email</p>
-                        <span className="text-[10px] font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform">➔</span>
-                      </div>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 font-mono">support@eventghar.pk</p>
-                    </div>
-                  </a>
+                  </div>
 
-                  {/* Hours */}
-                  <div className="flex items-start gap-3.5 p-3.5 rounded-2xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950/50">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-neutral-900 dark:text-white">Support Operating Hours</p>
-                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">Monday – Sunday (7 Days)</p>
-                      <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">9:00 AM – 11:00 PM PKT</p>
+                  <div className="flex items-start gap-3 pt-3 border-t border-slate-100 dark:border-neutral-800">
+                    <span className="text-xl">⏰</span>
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">Operating Hours</p>
+                      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Monday – Sunday</p>
+                      <p className="text-xs text-slate-700 dark:text-neutral-300 font-medium">9:00 AM – 11:00 PM PKT</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Verification Quick Tips */}
-              <div className="rounded-3xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 sm:p-6 text-xs text-emerald-950 dark:text-emerald-300 leading-relaxed">
-                <div className="flex items-center gap-2 mb-2 font-black text-sm text-emerald-900 dark:text-emerald-200">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Payment Verification Guide</span>
-                </div>
-                <p className="text-neutral-600 dark:text-neutral-400 text-xs">
-                  All transactions uploaded through Easypaisa, JazzCash, or online banking are matched manually against transaction IDs. Please allow up to 2 hours during peak ticket drop hours.
-                </p>
+              {/* Tips block */}
+              <div className="bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-100 dark:border-purple-900/50 p-6 text-xs text-purple-900 dark:text-purple-300 leading-relaxed">
+                <p className="font-bold text-sm mb-1 text-purple-950 dark:text-purple-200">Payment Verification Tip</p>
+                If your payment screenshot is taking longer to verify, please allow up to 2 hours during peak event times. You can also contact us with your booking email.
               </div>
-
             </div>
 
-            {/* Right: Contact Form (7 cols) */}
-            <div className="lg:col-span-7 bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
-              <h2 className="text-xl font-black text-neutral-900 dark:text-white mb-1">
-                Submit an Inquiry
+            {/* Right: Contact Form */}
+            <div className="md:col-span-2 bg-white dark:bg-neutral-900 rounded-3xl border border-slate-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">
+                Send Us a Message
               </h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">
-                Fill in the details below and we will get back to you with a resolution.
-              </p>
 
               {errorMsg && (
-                <div className="mb-6 p-4 rounded-2xl bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-300 text-xs sm:text-sm font-semibold flex items-center gap-2">
-                  <span>⚠️</span>
-                  <span>{errorMsg}</span>
+                <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/50 dark:border-red-900/50 dark:text-red-400 text-sm font-medium">
+                  {errorMsg}
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                      Your Full Name *
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 mb-1.5">
+                      Your Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -269,102 +235,92 @@ export default function ContactUsPage() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="e.g. Ali Khan"
-                      className="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                      className="w-full rounded-xl border border-slate-300 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                      Phone Number (11 digits) *
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 mb-1.5">
+                      Phone Number <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
                       required
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="03001234567"
-                      className="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                      placeholder="03XXXXXXXXX"
+                      className="w-full rounded-xl border border-slate-300 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                      Email Address *
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 mb-1.5">
+                      Email Address <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="ali@example.com"
-                      className="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                      placeholder="your.email@example.com"
+                      className="w-full rounded-xl border border-slate-300 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                      Issue Category *
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 mb-1.5">
+                      Issue Category <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                      className="w-full rounded-xl border border-slate-300 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                     >
-                      {CATEGORIES.map((cat, i) => (
-                        <option key={i} value={cat}>{cat}</option>
-                      ))}
+                      <option value="Payment Verification Issue">Payment Verification / Screenshot Issue</option>
+                      <option value="Ticket Access & QR Scanner">Ticket Access & QR Code Pass</option>
+                      <option value="Event Booking Query">Event Booking Query</option>
+                      <option value="Host an Event / Organizer Inquiry">Host an Event / Organizer Inquiry</option>
+                      <option value="Account / Profile Issue">Account / Profile Issue</option>
+                      <option value="Other Support">Other Support</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    Event Number or Title <span className="text-neutral-400 font-normal lowercase">(optional)</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 mb-1.5">
+                    Event Number or Title <span className="text-slate-400 font-normal lowercase">(optional)</span>
                   </label>
                   <input
                     type="text"
                     value={eventReference}
                     onChange={(e) => setEventReference(e.target.value)}
-                    placeholder="e.g. #102 or Sufi Night 2026"
-                    className="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
+                    placeholder="e.g. #102 or Tech Summit 2026"
+                    className="w-full rounded-xl border border-slate-300 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
-                    Describe Your Inquiry *
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-neutral-300 mb-1.5">
+                    Describe your issue <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     required
                     rows={4}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Please provide details about what you need assistance with..."
-                    className="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-neutral-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition resize-none"
+                    placeholder="Please explain the issue you are facing or what help you need..."
+                    className="w-full rounded-xl border border-slate-300 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-950 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-4 text-sm font-bold text-white transition hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.99] shadow-lg shadow-emerald-500/25 disabled:opacity-50 cursor-pointer"
+                  className="w-full rounded-xl bg-purple-600 hover:bg-purple-700 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-purple-600/20 transition disabled:opacity-50 cursor-pointer"
                 >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                      </svg>
-                      <span>Transmitting Inquiry...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Transmit Inquiry to Support</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                  {loading ? "Submitting Inquiry..." : "Submit Inquiry ➔"}
                 </button>
               </form>
             </div>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
-import LiveIndicator from "@/components/LiveIndicator";
 
 interface Organizer {
   id: string;
@@ -85,18 +84,6 @@ export default function AdminOrganizersAndUsersPage() {
 
   useEffect(() => {
     fetchData();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel("admin-organizers-users-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "organizers" }, () => fetchData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => fetchData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchData())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   // Promote a User to Organizer
@@ -222,15 +209,12 @@ export default function AdminOrganizersAndUsersPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start md:self-auto">
-          <LiveIndicator />
-          <button
-            onClick={() => setIsManualModalOpen(true)}
-            className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-4 py-2.5 text-xs font-bold text-white transition shadow-sm flex items-center gap-2 cursor-pointer"
-          >
-            <span>+</span> Promote User by UUID
-          </button>
-        </div>
+        <button
+          onClick={() => setIsManualModalOpen(true)}
+          className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-xs font-bold text-white transition shadow-sm flex items-center gap-2 self-start md:self-auto cursor-pointer"
+        >
+          <span>+</span> Promote User by UUID
+        </button>
       </div>
 
       {/* Notification Toast */}
@@ -262,7 +246,7 @@ export default function AdminOrganizersAndUsersPage() {
             }`}
           >
             <span>Organizers</span>
-            <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+            <span className="rounded-full bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
               {organizers.length}
             </span>
           </button>

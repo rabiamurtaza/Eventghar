@@ -6,7 +6,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { generateTicketsForBooking } from "@/utils/ticketService";
 import QRScannerModal from "@/components/QRScannerModal";
-import LiveIndicator from "@/components/LiveIndicator";
 
 export default function AdminBookingsPage() {
   // Main View Switcher
@@ -94,29 +93,6 @@ export default function AdminBookingsPage() {
   useEffect(() => {
     fetchBookings();
     fetchIssuedTickets();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel("admin-bookings-attendance-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookings" },
-        () => {
-          fetchBookings();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "issued_tickets" },
-        () => {
-          fetchIssuedTickets();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const updateStatus = async (id: string, newStatus: string) => {
@@ -291,27 +267,26 @@ export default function AdminBookingsPage() {
         </div>
 
         {/* Action Buttons: Scanner & PDF Exports */}
-        <div className="flex flex-wrap items-center gap-3">
-          <LiveIndicator />
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsScannerOpen(true)}
-            className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition flex items-center gap-2 cursor-pointer"
+            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition flex items-center gap-2"
           >
             <span className="text-sm">📷</span>
-            <span>QR Scanner Desk</span>
+            <span>QR Scanner</span>
           </button>
 
           {activeMainTab === "bookings" && (
             <>
               <button 
                 onClick={downloadEventBookingsPDF}
-                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm cursor-pointer"
+                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm"
               >
-                Export Bookings PDF
+                Download Bookings PDF
               </button>
               <button 
                 onClick={downloadVerifiedReceiptsPDF}
-                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm cursor-pointer"
+                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm"
               >
                 Verified Receipts PDF
               </button>
@@ -321,17 +296,17 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Main Mode Toggle: Bookings vs Gate Attendance */}
-      <div className="mb-8 flex border-b border-neutral-200 dark:border-neutral-800 gap-4">
+      <div className="mb-8 flex border-b border-neutral-200 dark:border-neutral-800">
         <button
           onClick={() => setActiveMainTab("bookings")}
-          className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+          className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
             activeMainTab === "bookings"
-              ? "border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
+              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
               : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
           }`}
         >
           <span>📋 Bookings & Payment Proofs</span>
-          <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono">
+          <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs">
             {totalCount}
           </span>
         </button>
@@ -341,14 +316,14 @@ export default function AdminBookingsPage() {
             setActiveMainTab("attendance");
             fetchIssuedTickets();
           }}
-          className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+          className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
             activeMainTab === "attendance"
-              ? "border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
+              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
               : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
           }`}
         >
-          <span>🎟️ Gate Check-in & Scanned Passes</span>
-          <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 text-xs font-black">
+          <span>🎟️ Gate Attendance & Scanned Tickets</span>
+          <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-xs font-bold">
             {totalScanned}/{totalTicketsIssued}
           </span>
         </button>
@@ -361,9 +336,9 @@ export default function AdminBookingsPage() {
           <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button
               onClick={() => setStatusFilter("All")}
-              className={`p-4 rounded-2xl border text-left transition cursor-pointer ${
+              className={`p-4 rounded-xl border text-left transition ${
                 statusFilter === "All" 
-                  ? "bg-emerald-50/60 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800" 
+                  ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800" 
                   : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300"
               }`}
             >

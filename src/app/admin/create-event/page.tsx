@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { uuidv7 } from "@/utils/uuid";
 
 const CITIES = ["Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
 const CATEGORIES = ["Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
@@ -182,7 +181,6 @@ export default function AdminCreateEvent() {
 
     // 3. DATABASE INSERT
     const payload: any = {
-      id: uuidv7(),
       title: formData.title,
       category: formData.category,
       city: formData.city,
@@ -225,7 +223,6 @@ export default function AdminCreateEvent() {
       const validTiers = ticketTiers.filter(tier => tier.name || tier.price || tier.total);
       if (validTiers.length > 0) {
         const ticketsToInsert = validTiers.map(tier => ({
-           id: uuidv7(),
            event_id: newEvent.id,
            name: tier.name || 'Standard',
            price: tier.price ? parseFloat(tier.price) : 0,
@@ -506,21 +503,21 @@ export default function AdminCreateEvent() {
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  Selecting an organizer automatically grants them access to manage this event, view attendees, and scan QR tickets at <span className="text-emerald-600 dark:text-emerald-400 font-mono">/organizer/bookings</span>.
+                  Selecting an organizer automatically grants them access to manage this event, view attendees, and scan QR tickets at <span className="text-indigo-600 dark:text-indigo-400 font-mono">/organizer/bookings</span>.
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Organizer Name</label>
-                <input type="text" name="organizer_name" value={formData.organizer_name} onChange={handleChange} placeholder="e.g. Events Co." className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-neutral-600 dark:bg-black dark:text-white" />
+                <input type="text" name="organizer_name" value={formData.organizer_name} onChange={handleChange} placeholder="e.g. Events Co." className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Organizer Email / Contact</label>
-                <input type="text" name="organizer_contact" value={formData.organizer_contact} onChange={handleChange} placeholder="contact@example.com" className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-neutral-600 dark:bg-black dark:text-white" />
+                <input type="text" name="organizer_contact" value={formData.organizer_contact} onChange={handleChange} placeholder="contact@example.com" className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Event Status</label>
-                <select name="status" value={formData.status} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-neutral-600 dark:bg-black dark:text-white">
+                <select name="status" value={formData.status} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white">
                   <option value="draft">Draft (Hidden)</option>
                   <option value="published">Published (Live)</option>
                   <option value="sold_out">Sold Out</option>
@@ -539,7 +536,7 @@ export default function AdminCreateEvent() {
                 type="submit" 
                 disabled={loading}
                 onClick={() => setSubmitStatus("draft")}
-                className="rounded-xl bg-neutral-200 px-8 py-3.5 text-base font-bold text-neutral-800 transition hover:bg-neutral-300 active:translate-y-0 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50 cursor-pointer"
+                className="rounded-xl bg-neutral-200 px-8 py-3.5 text-base font-bold text-neutral-800 transition hover:bg-neutral-300 active:translate-y-0 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50"
               >
                 {loading && submitStatus === "draft" ? "Saving..." : "Save as Draft"}
               </button>
@@ -547,9 +544,9 @@ export default function AdminCreateEvent() {
                 type="submit" 
                 disabled={loading}
                 onClick={() => setSubmitStatus("published")}
-                className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-8 py-3.5 text-base font-bold text-white transition hover:from-emerald-600 hover:to-emerald-700 active:translate-y-0 shadow-lg shadow-emerald-500/30 disabled:opacity-50 cursor-pointer"
+                className="rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50"
               >
-                {loading && submitStatus === "published" ? "Publishing..." : "Publish Event ➔"}
+                {loading && submitStatus === "published" ? "Publishing..." : "Publish Event"}
               </button>
             </div>
 

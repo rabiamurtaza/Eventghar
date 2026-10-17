@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { playSuccessChime, playErrorBuzzer } from "@/utils/ticketService";
-import LiveIndicator from "@/components/LiveIndicator";
 
 interface QRScannerModalProps {
   isOpen: boolean;
@@ -307,15 +306,12 @@ export default function QRScannerModal({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <LiveIndicator />
-            <button
-              onClick={onClose}
-              className="h-8 w-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-800 transition"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Event Selector (for Admin, or if not locked) */}

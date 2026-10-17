@@ -4,8 +4,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
-import LiveIndicator from "@/components/LiveIndicator";
-import EventDetailsModal from "@/components/EventDetailsModal";
 
 const CITIES = ["All", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
 const CATEGORIES = ["All", "Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
@@ -21,12 +19,11 @@ export default function EventsSection() {
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
-  // Fetch real events from Supabase with Realtime updates
+  // Fetch real events from Supabase
   useEffect(() => {
-    const supabase = createClient();
-
     async function fetchEvents() {
-      const { data } = await supabase
+      const supabase = createClient();
+      const { data, error } = await supabase
         .from('events')
         .select('*, ticket_types(*)')
         .eq('status', 'published')
@@ -38,28 +35,6 @@ export default function EventsSection() {
       setLoading(false);
     }
     fetchEvents();
-
-    const channel = supabase
-      .channel("public-events-catalog-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "events" },
-        () => {
-          fetchEvents();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "ticket_types" },
-        () => {
-          fetchEvents();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   // Prevent background scrolling when modal is open
@@ -134,16 +109,13 @@ export default function EventsSection() {
   return (
     <section id="events" className="mt-16 scroll-mt-24 pb-20">
       {/* 1. SECTION HEADER */}
-      <div className="mb-8 md:mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Explore Upcoming Events
-          </h2>
-          <p className="mt-3 text-lg text-neutral-600">
-            Filter by city, category, or search to find exactly what you are looking for.
-          </p>
-        </div>
-        <LiveIndicator />
+      <div className="mb-8 md:mb-12">
+        <h2 className="text-3xl font-extrabold tracking-tight text-slate-900  sm:text-4xl">
+          Explore Upcoming Events
+        </h2>
+        <p className="mt-3 text-lg text-neutral-600 ">
+          Filter by city, category, or search to find exactly what you are looking for.
+        </p>
       </div>
 
       {/* 2. FILTER BAR */}
@@ -191,19 +163,7 @@ export default function EventsSection() {
 
       {/* 3. EVENT GRID */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((n) => (
-            <div key={n} className="overflow-hidden rounded-2xl bg-white border border-neutral-200 shadow-sm p-4 animate-pulse">
-              <div className="aspect-video w-full bg-neutral-200 rounded-xl mb-4" />
-              <div className="h-4 bg-neutral-200 rounded w-1/3 mb-2" />
-              <div className="h-6 bg-neutral-200 rounded w-2/3 mb-4" />
-              <div className="flex justify-between items-center">
-                <div className="h-4 bg-neutral-200 rounded w-1/4" />
-                <div className="h-4 bg-neutral-200 rounded w-1/4" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="py-20 text-center text-neutral-500 ">Loading events...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredEvents.length > 0 ? (
@@ -269,12 +229,81 @@ export default function EventsSection() {
         </div>
       )}
 
-      {/* 4. MODERN EVENT DETAILS CARD MODAL */}
-      <EventDetailsModal
-        event={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
-        onBook={handleBookTicketClick}
-      />
+      {/* 4. MODAL FOR EVENT DETAILS */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+            onClick={() => setSelectedEvent(null)}
+          />
+          
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white  border border-neutral-200  shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button 
+              onClick={() => setSelectedEvent(null)}
+              className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-slate-900 hover:bg-black transition"
+            >
+              ✕
+            </button>
+
+            <div className="aspect-video w-full bg-neutral-100  flex items-center justify-center relative">
+              {selectedEvent.image_url ? (
+                <img src={selectedEvent.image_url} alt={selectedEvent.title || "Event Image"} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-slate-600  font-medium">No Image</span>
+              )}
+            </div>
+
+            <div className="p-6 sm:p-8">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-300 dark:bg-green-950/50 dark:text-green-400 border border-purple-700/50 dark:border-green-900/50">
+                  {selectedEvent.category || "Event"}
+                </span>
+                <span className="text-sm font-medium text-neutral-500 ">{selectedEvent.city}</span>
+              </div>
+
+              <h2 className="mb-2 text-2xl font-bold text-slate-900  sm:text-3xl"><span className="capitalize">{selectedEvent.title}</span></h2>
+              <p className="mb-6 text-neutral-600  leading-relaxed whitespace-pre-wrap">{selectedEvent.description}</p>
+              
+              <div className="mb-8 grid grid-cols-2 gap-4 rounded-xl bg-slate-50  p-4 border border-neutral-200 ">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-neutral-500">Date</p>
+                  <p className="font-medium text-slate-900 ">{selectedEvent.start_date || "TBD"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-neutral-500">Time</p>
+                  <p className="font-medium text-slate-900 ">{selectedEvent.start_time || "TBD"}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs font-semibold uppercase text-neutral-500">Venue</p>
+                  <p className="font-medium text-slate-900 ">{selectedEvent.venue_name || "TBD"}</p>
+                </div>
+                {selectedEvent.google_maps_link && (
+                  <div className="col-span-2 mt-2">
+                    <a href={selectedEvent.google_maps_link} target="_blank" rel="noopener noreferrer" className="text-sm text-purple-400 hover:underline">
+                      View on Google Maps ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-neutral-500 ">Ticket Price</p>
+                  <p className="text-2xl font-bold text-slate-900 ">
+                    {displayPrice(selectedEvent)}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => handleBookTicketClick(selectedEvent)} 
+                  className="rounded-xl bg-purple-700 px-8 py-3 font-bold text-white transition hover:bg-purple-600 hover:-translate-y-1 active:translate-y-0 shadow-lg shadow-purple-500/30 text-center cursor-pointer"
+                >
+                  Book Tickets
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
