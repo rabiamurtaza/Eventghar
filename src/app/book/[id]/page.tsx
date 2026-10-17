@@ -388,17 +388,40 @@ export default function BookTicketPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Number of Tickets * <span className="text-xs text-neutral-400">({event?.is_student_only ? 'Max 1' : 'Max 3'})</span>
+                  Number of Tickets * <span className="text-xs text-neutral-400">({(event?.is_student_only === true || event?.is_student_only === 'true') ? 'Max 1' : 'Max 3'})</span>
                 </label>
                 <input 
                   type="number" 
                   required 
                   min={1} 
-                  max={event?.is_student_only ? 1 : Math.min(3, event?.max_tickets_per_person || 3)} 
+                  max={(event?.is_student_only === true || event?.is_student_only === 'true') ? 1 : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3))} 
+                  step={1}
                   value={numberOfTickets} 
+                  onFocus={e => e.target.select()}
+                  onKeyDown={e => {
+                    if (["1", "2", "3"].includes(e.key)) {
+                      const maxVal = (event?.is_student_only === true || event?.is_student_only === 'true') ? 1 : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3));
+                      const pressed = parseInt(e.key, 10);
+                      if (pressed <= maxVal) {
+                        e.preventDefault();
+                        setNumberOfTickets(pressed);
+                      }
+                    }
+                  }}
                   onChange={e => {
-                    let val = parseInt(e.target.value) || 1;
-                    const maxVal = event?.is_student_only ? 1 : Math.min(3, event?.max_tickets_per_person || 3);
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setNumberOfTickets(1);
+                      return;
+                    }
+                    const maxVal = (event?.is_student_only === true || event?.is_student_only === 'true') ? 1 : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3));
+                    const lastChar = raw.slice(-1);
+                    const digit = parseInt(lastChar, 10);
+                    if (!isNaN(digit) && digit >= 1 && digit <= maxVal) {
+                      setNumberOfTickets(digit);
+                      return;
+                    }
+                    let val = parseInt(raw, 10) || 1;
                     if (val > maxVal) val = maxVal;
                     if (val < 1) val = 1;
                     setNumberOfTickets(val);
