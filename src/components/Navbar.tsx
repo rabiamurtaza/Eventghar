@@ -100,37 +100,22 @@ export default function Navbar() {
               : "bg-white/95 backdrop-blur-md border border-neutral-200/90 text-[#1c1230] shadow-xl"
           }`}
         >
-          {/* Left Side: Brand Logo & Name */}
-          <div className="flex items-center min-w-0 shrink">
+          {/* Left Side: Text-Based Wordmark "EventGhar" */}
+          <div className="flex items-center min-w-0 shrink-0">
             <Link
               href="/"
-              className="flex items-center gap-1.5 sm:gap-2.5 transition hover:opacity-90 font-heading"
+              className="transition hover:opacity-90 font-heading select-none flex items-center"
+              aria-label="EventGhar Home"
             >
-              <span className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-gradient-to-tr from-[#7a1fd1] to-[#a855f7] text-white shadow-md shadow-[#7a1fd1]/25 shrink-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-3.5 w-3.5 sm:h-5 sm:w-5"
-                >
-                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                  <line x1="16" x2="16" y1="2" y2="6" />
-                  <line x1="8" x2="8" y1="2" y2="6" />
-                  <line x1="3" x2="21" y1="10" y2="10" />
-                </svg>
-              </span>
-              <span className={`font-extrabold text-sm sm:text-xl tracking-tight whitespace-nowrap ${isGlass ? "text-white" : "text-[#1c1230]"}`}>
-                Event Ghar
+              <span className="text-[17px] xs:text-xl sm:text-2xl font-black tracking-tight whitespace-nowrap leading-none flex items-center">
+                <span className={isGlass ? "text-white" : "text-[#1c1230]"}>Event</span>
+                <span className={isGlass ? "text-purple-300" : "text-[#7a1fd1]"}>Ghar</span>
               </span>
             </Link>
           </div>
 
           {/* Right Side: Navigation & User Controls */}
-          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Explore Option */}
             <Link
               href="/#events"
@@ -147,7 +132,7 @@ export default function Navbar() {
             {session ? (
               <Link
                 href="/book-event"
-                className={`rounded-full px-2.5 sm:px-4 py-1 sm:py-2 text-[11px] sm:text-sm font-semibold transition whitespace-nowrap shadow-xs ${
+                className={`rounded-full px-2 xs:px-3 sm:px-4 py-1 sm:py-2 text-[10px] xs:text-xs sm:text-sm font-semibold transition whitespace-nowrap shadow-xs ${
                   isGlass
                     ? "bg-white text-[#1c1230] hover:bg-neutral-100 shadow-white/10"
                     : "bg-[#7a1fd1] text-white hover:bg-[#6114ae] shadow-[#7a1fd1]/20"
@@ -158,7 +143,7 @@ export default function Navbar() {
             ) : (
               <button 
                 onClick={handleLoggedOutRequestEvent}
-                className={`rounded-full px-2.5 sm:px-4 py-1 sm:py-2 text-[11px] sm:text-sm font-semibold transition whitespace-nowrap shadow-xs cursor-pointer ${
+                className={`rounded-full px-2 xs:px-3 sm:px-4 py-1 sm:py-2 text-[10px] xs:text-xs sm:text-sm font-semibold transition whitespace-nowrap shadow-xs cursor-pointer ${
                   isGlass
                     ? "bg-white text-[#1c1230] hover:bg-neutral-100 shadow-white/10"
                     : "bg-[#7a1fd1] text-white hover:bg-[#6114ae] shadow-[#7a1fd1]/20"
@@ -182,7 +167,7 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Soft Filled Circle User Icon */}
+            {/* Soft Filled Circle User Icon / Close (X) when menu open */}
             <div className="relative" ref={userDropdownRef}>
               <button
                 type="button"
@@ -192,22 +177,39 @@ export default function Navbar() {
                     ? "bg-white/20 text-white hover:bg-white/30 backdrop-blur-md border border-white/20"
                     : "bg-neutral-100 text-[#1c1230] hover:bg-neutral-200 border border-neutral-200"
                 }`}
-                title="Account Options"
-                aria-label="Account Options"
+                title={isUserOpen ? "Close menu" : "Account Options"}
+                aria-label={isUserOpen ? "Close menu" : "Account Options"}
+                aria-expanded={isUserOpen}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-3.5 w-3.5 sm:h-4 sm:w-4"
-                >
-                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
+                {isUserOpen ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                )}
               </button>
 
               {/* Dropdown Menu */}

@@ -253,7 +253,7 @@ export default function BookTicketPage() {
           </div>
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4">Thank you for your booking request!</h2>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-            Your payment is currently being processed. Once confirmed, you will receive an email containing your ticket's QR code. You will also be able to access your QR code anytime directly from the &quot;My Tickets&quot; page.
+            Your payment is currently being processed by the organizer. Once confirmed, your ticket and QR code will appear directly under My Account in &quot;My Tickets&quot;. You can present your digital pass at the entrance on the day of the event.
           </p>
           <Link href="/" className="inline-block w-full rounded-xl bg-green-500 px-6 py-3 font-bold text-white transition hover:bg-green-600 shadow-lg shadow-green-500/30">
             Back to Home

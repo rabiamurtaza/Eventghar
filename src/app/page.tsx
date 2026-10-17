@@ -68,7 +68,7 @@ export default function Home() {
                   Get your ticket
                 </h3>
                 <p className="text-sm text-gray-600 font-sans leading-relaxed">
-                  Once the organizer confirms your payment, your QR ticket arrives by email and sits in My Tickets. Show it at the gate.
+                  Once the organizer confirms your payment, your QR ticket will appear in My Account under My Tickets. Show it at the gate.
                 </p>
               </div>
             </div>
