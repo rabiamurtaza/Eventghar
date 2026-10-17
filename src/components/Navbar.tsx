@@ -245,16 +245,6 @@ export default function Navbar() {
                           Admin Control
                         </Link>
                       )}
-                      <Link
-                        href="/book-event"
-                        onClick={() => setIsUserOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-neutral-50 transition"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#6a17b8]">
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        Request an Event
-                      </Link>
                       <button
                         onClick={handleSignOut}
                         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 transition mt-1 cursor-pointer"
@@ -294,18 +284,6 @@ export default function Navbar() {
                         </svg>
                         Sign Up
                       </Link>
-                      <button
-                        onClick={() => {
-                          setIsUserOpen(false);
-                          handleLoggedOutRequestEvent();
-                        }}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-neutral-50 transition text-left mt-1 border-t border-neutral-100 pt-2 cursor-pointer"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#6a17b8]">
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        Request an Event
-                      </button>
                     </>
                   )}
                 </div>
