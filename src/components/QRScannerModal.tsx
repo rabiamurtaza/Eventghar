@@ -19,14 +19,73 @@ interface ScanResult {
   message: string;
   details?: {
     holder_name?: string;
+    holder_email?: string;
+    holder_phone?: string;
     ticket_code?: string;
     ticket_number?: number;
     total_tickets?: number;
     ticket_type?: string;
     event_title?: string;
+    event_number?: number | string;
+    start_date?: string;
+    start_time?: string;
+    venue_name?: string;
+    city?: string;
     scanned_at?: string;
+    raw_code?: string;
+    active_event_title?: string;
   };
   timestamp: string;
+}
+
+function formatDate(dateStr?: string) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatTime(timeStr?: string) {
+  if (!timeStr) return null;
+  try {
+    const parts = timeStr.split(":");
+    if (parts.length >= 2) {
+      let hours = parseInt(parts[0], 10);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      return `${hours}:${minutes} ${ampm}`;
+    }
+    return timeStr;
+  } catch {
+    return timeStr;
+  }
+}
+
+function formatDateTime(isoStr?: string) {
+  if (!isoStr) return null;
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    return d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return isoStr;
+  }
 }
 
 export default function QRScannerModal({
@@ -118,6 +177,29 @@ export default function QRScannerModal({
     };
   }, [isOpen, selectedEventId]);
 
+  // Handle keyboard shortcut (Enter, Space, Escape) to dismiss result and return to scanner
+  useEffect(() => {
+    if (!currentResult) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+        e.preventDefault();
+        handleDismissResult();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentResult]);
+
+  const handleDismissResult = () => {
+    setCurrentResult(null);
+    // Cooldown prevents immediate re-scan of the same code before user withdraws ticket
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsProcessing(false);
+      }
+    }, 350);
+  };
+
   const handleDecodedText = async (decodedText: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -139,11 +221,13 @@ export default function QRScannerModal({
         const res: ScanResult = {
           type: "invalid",
           message: "Not an Event Ghar ticket. Corrupted or invalid QR code.",
+          details: {
+            raw_code: typeof decodedText === "string" ? decodedText.slice(0, 100) : undefined,
+          },
           timestamp: timeStr,
         };
         setCurrentResult(res);
         setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
-        resumeAfterDelay();
         return;
       }
 
@@ -160,14 +244,16 @@ export default function QRScannerModal({
           message: `Wrong Event! This ticket belongs to "${scannedEventName}", not "${activeName}".`,
           details: {
             event_title: scannedEventName,
+            active_event_title: activeName,
             holder_name: parsed.holder_name,
             ticket_code: parsed.ticket_code,
+            ticket_number: parsed.ticket_number,
+            total_tickets: parsed.total_tickets,
           },
           timestamp: timeStr,
         };
         setCurrentResult(res);
         setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
-        resumeAfterDelay();
         return;
       }
 
@@ -179,7 +265,11 @@ export default function QRScannerModal({
           events (
             id,
             title,
-            event_number
+            event_number,
+            start_date,
+            start_time,
+            venue_name,
+            city
           )
         `)
         .eq("id", parsed.ticket_id)
@@ -190,11 +280,15 @@ export default function QRScannerModal({
         const res: ScanResult = {
           type: "invalid",
           message: "Ticket not found in the database. Please verify booking.",
+          details: {
+            holder_name: parsed.holder_name,
+            ticket_code: parsed.ticket_code || parsed.ticket_id,
+            event_title: parsed.event_title,
+          },
           timestamp: timeStr,
         };
         setCurrentResult(res);
         setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
-        resumeAfterDelay();
         return;
       }
 
@@ -210,16 +304,24 @@ export default function QRScannerModal({
           message: `Ticket Already Used! Scanned at ${scannedTimeFormatted}.`,
           details: {
             holder_name: ticket.holder_name,
+            holder_email: ticket.holder_email,
+            holder_phone: ticket.holder_phone,
             ticket_code: ticket.ticket_code,
             ticket_number: ticket.ticket_number,
             total_tickets: ticket.total_tickets,
+            ticket_type: ticket.ticket_type,
+            event_title: ticket.events?.title || parsed.event_title,
+            event_number: ticket.events?.event_number,
+            start_date: ticket.events?.start_date,
+            start_time: ticket.events?.start_time,
+            venue_name: ticket.events?.venue_name,
+            city: ticket.events?.city,
             scanned_at: ticket.scanned_at,
           },
           timestamp: timeStr,
         };
         setCurrentResult(res);
         setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
-        resumeAfterDelay();
         return;
       }
 
@@ -242,11 +344,18 @@ export default function QRScannerModal({
         message: "VALID ENTRY (Admitted)",
         details: {
           holder_name: ticket.holder_name,
+          holder_email: ticket.holder_email,
+          holder_phone: ticket.holder_phone,
           ticket_code: ticket.ticket_code,
           ticket_number: ticket.ticket_number,
           total_tickets: ticket.total_tickets,
           ticket_type: ticket.ticket_type,
-          event_title: ticket.events?.title,
+          event_title: ticket.events?.title || parsed.event_title,
+          event_number: ticket.events?.event_number,
+          start_date: ticket.events?.start_date,
+          start_time: ticket.events?.start_time,
+          venue_name: ticket.events?.venue_name,
+          city: ticket.events?.city,
           scanned_at: nowIso,
         },
         timestamp: timeStr,
@@ -257,8 +366,6 @@ export default function QRScannerModal({
       if (onScanSuccess) {
         onScanSuccess();
       }
-
-      resumeAfterDelay();
     } catch (err: any) {
       console.error("Scan processing error:", err);
       playErrorBuzzer();
@@ -268,16 +375,8 @@ export default function QRScannerModal({
         timestamp: timeStr,
       };
       setCurrentResult(res);
-      resumeAfterDelay();
+      setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
     }
-  };
-
-  const resumeAfterDelay = () => {
-    setTimeout(() => {
-      if (isMountedRef.current) {
-        setIsProcessing(false);
-      }
-    }, 2500);
   };
 
   const activeEventTitle = fixedEventTitle || eventsList.find((e) => e.id === selectedEventId)?.title || "All Events";
@@ -349,7 +448,7 @@ export default function QRScannerModal({
                 <div className="w-48 h-48 border-2 border-dashed border-indigo-400/70 rounded-xl animate-pulse"></div>
               </div>
 
-              {isProcessing && (
+              {isProcessing && !currentResult && (
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-xs font-bold text-white">
                   Verifying...
                 </div>
@@ -361,64 +460,8 @@ export default function QRScannerModal({
           </p>
         </div>
 
-        {/* Live Scan Result Card */}
-        {currentResult && (
-          <div
-            className={`p-4 border-t transition-all duration-300 ${
-              currentResult.type === "success"
-                ? "bg-green-950/80 border-green-700 text-green-200"
-                : currentResult.type === "already_used"
-                ? "bg-red-950/80 border-red-700 text-red-200"
-                : currentResult.type === "wrong_event"
-                ? "bg-amber-950/80 border-amber-700 text-amber-200"
-                : "bg-red-950/80 border-red-700 text-red-200"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl font-bold ${
-                  currentResult.type === "success"
-                    ? "bg-green-500 text-white"
-                    : currentResult.type === "already_used"
-                    ? "bg-red-600 text-white"
-                    : currentResult.type === "wrong_event"
-                    ? "bg-amber-500 text-white"
-                    : "bg-red-500 text-white"
-                }`}
-              >
-                {currentResult.type === "success"
-                  ? "✓"
-                  : currentResult.type === "already_used"
-                  ? "✕"
-                  : currentResult.type === "wrong_event"
-                  ? "⚠️"
-                  : "!"}
-              </div>
-
-              <div className="overflow-hidden flex-1">
-                <div className="font-extrabold text-sm sm:text-base leading-tight">
-                  {currentResult.message}
-                </div>
-                {currentResult.details && (
-                  <div className="text-xs opacity-90 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                    {currentResult.details.holder_name && (
-                      <span><strong>Attendee:</strong> {currentResult.details.holder_name}</span>
-                    )}
-                    {currentResult.details.ticket_number && (
-                      <span><strong>Pass:</strong> {currentResult.details.ticket_number} of {currentResult.details.total_tickets}</span>
-                    )}
-                    {currentResult.details.ticket_code && (
-                      <span><strong>Code:</strong> {currentResult.details.ticket_code}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Recent Scan Log (Last 3) */}
-        {scanHistory.length > 0 && (
+        {scanHistory.length > 0 && !currentResult && (
           <div className="p-4 bg-neutral-950 border-t border-neutral-800 max-h-36 overflow-y-auto">
             <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-2">
               Recent Scans
@@ -458,6 +501,240 @@ export default function QRScannerModal({
             Close Scanner
           </button>
         </div>
+
+        {/* Scan Result Overlay Modal with Full Details & Single OK Button */}
+        {currentResult && (
+          <div className="absolute inset-0 z-30 bg-neutral-950/98 backdrop-blur-md flex flex-col justify-between overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Top Status Header */}
+            <div
+              className={`p-4 sm:p-5 border-b flex items-start gap-3.5 ${
+                currentResult.type === "success"
+                  ? "bg-green-950/80 border-green-700 text-green-100"
+                  : currentResult.type === "already_used"
+                  ? "bg-red-950/80 border-red-700 text-red-100"
+                  : currentResult.type === "wrong_event"
+                  ? "bg-amber-950/80 border-amber-700 text-amber-100"
+                  : "bg-red-950/80 border-red-700 text-red-100"
+              }`}
+            >
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl font-bold shadow-md ${
+                  currentResult.type === "success"
+                    ? "bg-green-500 text-white"
+                    : currentResult.type === "already_used"
+                    ? "bg-red-600 text-white"
+                    : currentResult.type === "wrong_event"
+                    ? "bg-amber-500 text-white"
+                    : "bg-red-500 text-white"
+                }`}
+              >
+                {currentResult.type === "success"
+                  ? "✓"
+                  : currentResult.type === "already_used"
+                  ? "✕"
+                  : currentResult.type === "wrong_event"
+                  ? "⚠️"
+                  : "!"}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="font-extrabold text-base sm:text-lg leading-snug">
+                  {currentResult.message}
+                </div>
+                <div className="text-xs opacity-80 mt-0.5">
+                  Scanned at {currentResult.timestamp}
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Details Section */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 text-xs">
+              {/* Attendee Details */}
+              <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-3.5 shadow-sm">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2 flex items-center gap-1.5">
+                  <span>👤</span> Attendee Details
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-neutral-500 block text-[11px]">Full Name:</span>
+                    <span className="font-semibold text-white text-sm">
+                      {currentResult.details?.holder_name || "N/A"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ticket Details */}
+              <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-3.5 shadow-sm">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2 flex items-center gap-1.5">
+                  <span>🎟️</span> Ticket Details
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <span className="text-neutral-500 block text-[11px]">Ticket Code:</span>
+                    <span className="font-mono font-semibold text-purple-300 select-all">
+                      {currentResult.details?.ticket_code || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 block text-[11px]">Pass:</span>
+                    <span className="font-semibold text-white">
+                      {currentResult.details?.ticket_number
+                        ? `Pass ${currentResult.details.ticket_number} of ${currentResult.details.total_tickets || 1}`
+                        : "Standard Pass"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 block text-[11px]">Ticket Type:</span>
+                    <span className="font-semibold text-white">
+                      {currentResult.details?.ticket_type || "Standard"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 block text-[11px]">Status:</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        currentResult.type === "success"
+                          ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                          : currentResult.type === "already_used"
+                          ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                          : currentResult.type === "wrong_event"
+                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                          : "bg-red-500/20 text-red-400 border border-red-500/30"
+                      }`}
+                    >
+                      {currentResult.type === "success"
+                        ? "Admitted"
+                        : currentResult.type === "already_used"
+                        ? "Already Used"
+                        : currentResult.type === "wrong_event"
+                        ? "Wrong Event"
+                        : "Invalid"}
+                    </span>
+                  </div>
+                  {currentResult.details?.scanned_at && (
+                    <div className="col-span-2 pt-1 border-t border-neutral-800/60">
+                      <span className="text-neutral-500 block text-[11px]">Scanned At:</span>
+                      <span className="text-neutral-300">
+                        {formatDateTime(currentResult.details.scanned_at) || currentResult.details.scanned_at}
+                      </span>
+                    </div>
+                  )}
+                  {currentResult.details?.raw_code && (
+                    <div className="col-span-2 pt-1 border-t border-neutral-800/60">
+                      <span className="text-neutral-500 block text-[11px]">Scanned Payload:</span>
+                      <span className="text-neutral-400 font-mono text-[11px] break-all">
+                        {currentResult.details.raw_code}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Event Details */}
+              <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-3.5 shadow-sm">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2 flex items-center gap-1.5">
+                  <span>📅</span> Event Details
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-neutral-500 block text-[11px]">Event Title:</span>
+                    <span className="font-bold text-white text-sm">
+                      {currentResult.details?.event_number ? `#${currentResult.details.event_number} - ` : ""}
+                      {currentResult.details?.event_title || activeEventTitle}
+                    </span>
+                  </div>
+
+                  {currentResult.details?.active_event_title && (
+                    <div>
+                      <span className="text-neutral-500 block text-[11px]">Expected Active Event:</span>
+                      <span className="text-amber-300 font-medium">
+                        {currentResult.details.active_event_title}
+                      </span>
+                    </div>
+                  )}
+
+                  {(currentResult.details?.start_date || currentResult.details?.start_time) && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {currentResult.details.start_date && (
+                        <div>
+                          <span className="text-neutral-500 block text-[11px]">Date:</span>
+                          <span className="text-neutral-200">
+                            {formatDate(currentResult.details.start_date)}
+                          </span>
+                        </div>
+                      )}
+                      {currentResult.details.start_time && (
+                        <div>
+                          <span className="text-neutral-500 block text-[11px]">Time:</span>
+                          <span className="text-neutral-200">
+                            {formatTime(currentResult.details.start_time)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {(currentResult.details?.venue_name || currentResult.details?.city) && (
+                    <div className="pt-1">
+                      <span className="text-neutral-500 block text-[11px]">Venue & Location:</span>
+                      <span className="text-neutral-200">
+                        {currentResult.details.venue_name
+                          ? `${currentResult.details.venue_name}${currentResult.details.city ? `, ${currentResult.details.city}` : ""}`
+                          : currentResult.details.city}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Contact Details */}
+              {(currentResult.details?.holder_email || currentResult.details?.holder_phone) && (
+                <div className="rounded-2xl bg-neutral-900/90 border border-neutral-800 p-3.5 shadow-sm">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mb-2 flex items-center gap-1.5">
+                    <span>📞</span> Contact Details
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {currentResult.details.holder_email && (
+                      <div>
+                        <span className="text-neutral-500 block text-[11px]">Email Address:</span>
+                        <span className="text-neutral-200 truncate block font-medium">
+                          {currentResult.details.holder_email}
+                        </span>
+                      </div>
+                    )}
+                    {currentResult.details.holder_phone && (
+                      <div>
+                        <span className="text-neutral-500 block text-[11px]">Phone Number:</span>
+                        <span className="text-neutral-200 font-medium">
+                          {currentResult.details.holder_phone}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Single OK Button Footer */}
+            <div className="p-4 border-t border-neutral-800 bg-neutral-900/90 flex-shrink-0">
+              <button
+                type="button"
+                autoFocus
+                onClick={handleDismissResult}
+                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-base text-white transition-all duration-150 shadow-lg flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-950 active:scale-[0.99] ${
+                  currentResult.type === "success"
+                    ? "bg-green-600 hover:bg-green-500 focus:ring-green-500 shadow-green-950/50"
+                    : currentResult.type === "wrong_event"
+                    ? "bg-amber-600 hover:bg-amber-500 focus:ring-amber-500 shadow-amber-950/50"
+                    : "bg-red-600 hover:bg-red-500 focus:ring-red-500 shadow-red-950/50"
+                }`}
+              >
+                <span>OK</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
