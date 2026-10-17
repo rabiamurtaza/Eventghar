@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import QRScannerModal from "@/components/QRScannerModal";
+import LiveIndicator from "@/components/LiveIndicator";
 
 export default function PublishedEventsPage() {
   const [events, setEvents] = useState<any[]>([]);
@@ -26,6 +27,22 @@ export default function PublishedEventsPage() {
 
   useEffect(() => {
     fetchEvents();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-published-events-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => {
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleUnpublish = async (id: string | number) => {
@@ -72,6 +89,7 @@ export default function PublishedEventsPage() {
               Manage events that are currently live on the platform.
             </p>
           </div>
+          <LiveIndicator />
         </div>
 
         {loading ? (
@@ -114,7 +132,7 @@ export default function PublishedEventsPage() {
                   <div className="mt-auto pt-4 border-t border-neutral-100 dark:border-neutral-800 flex flex-col gap-2">
                     <button 
                       onClick={() => setScannerEvent({ id: event.id, title: event.title })}
-                      className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 py-2 text-sm font-semibold text-white shadow-sm transition flex items-center justify-center gap-1.5"
+                      className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 py-2.5 text-xs font-bold text-white shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>📷</span> Scan Event Tickets
                     </button>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { uuidv7 } from "@/utils/uuid";
 
 // Sliding duration: edit this constant to change slide speed
 const SLIDE_INTERVAL_MS = 7000;
@@ -61,6 +62,17 @@ export default function HeroSlider() {
     checkRole();
     fetchHeroImages();
 
+    const channel = supabase
+      .channel("public-hero-images-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hero_images" },
+        () => {
+          fetchHeroImages();
+        }
+      )
+      .subscribe();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         supabase
@@ -76,6 +88,7 @@ export default function HeroSlider() {
 
     return () => {
       subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [supabase, fetchHeroImages]);
 
@@ -199,10 +212,10 @@ export default function HeroSlider() {
 
       const imageUrl = publicUrlData.publicUrl;
 
-      // Insert record into 'hero_images' database table
+      // Insert record into 'hero_images' database table with UUIDv7
       const { error: insertErr } = await supabase
         .from("hero_images")
-        .insert([{ image_url: imageUrl }]);
+        .insert([{ id: uuidv7(), image_url: imageUrl }]);
 
       if (insertErr) throw insertErr;
 

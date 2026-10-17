@@ -9,6 +9,7 @@ import {
   markAllRequestsAsReviewed, 
   markRequestAsPending 
 } from "@/utils/requestTracking";
+import LiveIndicator from "@/components/LiveIndicator";
 
 export default function AdminEventRequestsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -77,7 +78,23 @@ export default function AdminEventRequestsPage() {
       setReviewedIds(getReviewedRequestIds());
     };
     window.addEventListener("event-requests-updated", handleUpdate);
-    return () => window.removeEventListener("event-requests-updated", handleUpdate);
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-requests-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "book_event_requests" },
+        () => {
+          fetchRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      window.removeEventListener("event-requests-updated", handleUpdate);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const isReviewed = (req: any) => {
@@ -152,7 +169,22 @@ export default function AdminEventRequestsPage() {
     return matchesTab && matchesSearch;
   });
 
-  if (loading) return <div className="p-8 text-neutral-500">Loading requests...</div>;
+  if (loading) {
+    return (
+      <div className="p-6 sm:p-10 space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="h-8 bg-neutral-200 dark:bg-neutral-800 rounded-lg w-48 animate-pulse" />
+          <LiveIndicator />
+        </div>
+        <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-4">
+          <div className="h-6 bg-neutral-200 dark:bg-neutral-800 rounded w-1/4 animate-pulse" />
+          <div className="h-12 bg-neutral-100 dark:bg-neutral-800/40 rounded-xl animate-pulse" />
+          <div className="h-12 bg-neutral-100 dark:bg-neutral-800/40 rounded-xl animate-pulse" />
+          <div className="h-12 bg-neutral-100 dark:bg-neutral-800/40 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 sm:p-10">
@@ -175,14 +207,17 @@ export default function AdminEventRequestsPage() {
         </div>
 
         {/* Header Actions */}
-        {unreviewedCount > 0 && (
-          <button
-            onClick={handleMarkAllReviewed}
-            className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm flex items-center gap-2 self-start md:self-auto"
-          >
-            <span>✓</span> Mark All as Reviewed
-          </button>
-        )}
+        <div className="flex items-center gap-3 self-start md:self-auto">
+          <LiveIndicator />
+          {unreviewedCount > 0 && (
+            <button
+              onClick={handleMarkAllReviewed}
+              className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm flex items-center gap-2"
+            >
+              <span>✓</span> Mark All as Reviewed
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs & Search Bar */}
@@ -236,7 +271,7 @@ export default function AdminEventRequestsPage() {
             placeholder="Search requests..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs outline-none focus:border-indigo-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2 text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
           />
           {search && (
             <button
@@ -504,7 +539,7 @@ export default function AdminEventRequestsPage() {
 
                 <Link
                   href={`/admin/create-event?organizer_id=${selectedRequest.user_id || ''}&organizer_name=${encodeURIComponent(selectedRequest.organizer_name || '')}&organizer_contact=${encodeURIComponent(selectedRequest.organizer_contact || '')}&title=${encodeURIComponent(selectedRequest.title || '')}&city=${encodeURIComponent(selectedRequest.city || '')}&category=${encodeURIComponent(selectedRequest.category || '')}&venue_name=${encodeURIComponent(selectedRequest.venue_name || '')}&start_date=${encodeURIComponent(selectedRequest.start_date || '')}&total_tickets=${selectedRequest.expected_tickets || ''}&description=${encodeURIComponent(selectedRequest.description || '')}`}
-                  className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm flex items-center gap-1.5"
+                  className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm flex items-center gap-1.5"
                 >
                   <span>+</span>
                   <span>Create Event for this Request →</span>

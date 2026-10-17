@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import LiveIndicator from "@/components/LiveIndicator";
 
 const CITIES = ["All", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
 const CATEGORIES = ["All", "Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
@@ -19,11 +20,12 @@ export default function EventsSection() {
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
-  // Fetch real events from Supabase
+  // Fetch real events from Supabase with Realtime updates
   useEffect(() => {
+    const supabase = createClient();
+
     async function fetchEvents() {
-      const supabase = createClient();
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('events')
         .select('*, ticket_types(*)')
         .eq('status', 'published')
@@ -35,6 +37,28 @@ export default function EventsSection() {
       setLoading(false);
     }
     fetchEvents();
+
+    const channel = supabase
+      .channel("public-events-catalog-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => {
+          fetchEvents();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ticket_types" },
+        () => {
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Prevent background scrolling when modal is open
@@ -109,13 +133,16 @@ export default function EventsSection() {
   return (
     <section id="events" className="mt-16 scroll-mt-24 pb-20">
       {/* 1. SECTION HEADER */}
-      <div className="mb-8 md:mb-12">
-        <h2 className="text-3xl font-extrabold tracking-tight text-slate-900  sm:text-4xl">
-          Explore Upcoming Events
-        </h2>
-        <p className="mt-3 text-lg text-neutral-600 ">
-          Filter by city, category, or search to find exactly what you are looking for.
-        </p>
+      <div className="mb-8 md:mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            Explore Upcoming Events
+          </h2>
+          <p className="mt-3 text-lg text-neutral-600">
+            Filter by city, category, or search to find exactly what you are looking for.
+          </p>
+        </div>
+        <LiveIndicator />
       </div>
 
       {/* 2. FILTER BAR */}
@@ -163,7 +190,19 @@ export default function EventsSection() {
 
       {/* 3. EVENT GRID */}
       {loading ? (
-        <div className="py-20 text-center text-neutral-500 ">Loading events...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="overflow-hidden rounded-2xl bg-white border border-neutral-200 shadow-sm p-4 animate-pulse">
+              <div className="aspect-video w-full bg-neutral-200 rounded-xl mb-4" />
+              <div className="h-4 bg-neutral-200 rounded w-1/3 mb-2" />
+              <div className="h-6 bg-neutral-200 rounded w-2/3 mb-4" />
+              <div className="flex justify-between items-center">
+                <div className="h-4 bg-neutral-200 rounded w-1/4" />
+                <div className="h-4 bg-neutral-200 rounded w-1/4" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredEvents.length > 0 ? (

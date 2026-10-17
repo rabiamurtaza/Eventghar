@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { generateTicketsForBooking } from "@/utils/ticketService";
 import QRScannerModal from "@/components/QRScannerModal";
+import LiveIndicator from "@/components/LiveIndicator";
 
 export default function OrganizerBookingsPage() {
   const [session, setSession] = useState<any>(null);
@@ -28,12 +29,14 @@ export default function OrganizerBookingsPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   useEffect(() => {
+    let channel: any = null;
+    const supabase = createClient();
+
     async function fetchData() {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
       
-      if (!session) {
+      if (!currentSession) {
         setLoading(false);
         return;
       }
@@ -44,13 +47,13 @@ export default function OrganizerBookingsPage() {
           *,
           events!inner(id, title, organizer_id, event_number)
         `)
-        .eq('events.organizer_id', session.user.id)
+        .eq('events.organizer_id', currentSession.user.id)
         .order('created_at', { ascending: false });
 
       const eventsQuery = supabase
         .from('events')
         .select('id, title, organizer_id, event_number')
-        .eq('organizer_id', session.user.id)
+        .eq('organizer_id', currentSession.user.id)
         .eq('status', 'published');
 
       const [bookingsRes, eventsRes] = await Promise.all([query, eventsQuery]);
@@ -65,12 +68,36 @@ export default function OrganizerBookingsPage() {
     }
     
     fetchData();
+
+    // Set up Realtime listener
+    channel = supabase
+      .channel("organizer-bookings-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => {
+          fetchData();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "issued_tickets" },
+        () => {
+          fetchIssuedTickets();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   async function fetchIssuedTickets() {
-    if (!session) return;
-    setAttendanceLoading(true);
     const supabase = createClient();
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return;
+    setAttendanceLoading(true);
 
     const query = supabase
       .from('issued_tickets')
@@ -78,7 +105,7 @@ export default function OrganizerBookingsPage() {
         *,
         events!inner(id, title, organizer_id, event_number)
       `)
-      .eq('events.organizer_id', session.user.id)
+      .eq('events.organizer_id', currentSession.user.id)
       .order('created_at', { ascending: false });
 
     const { data } = await query;
@@ -245,30 +272,30 @@ export default function OrganizerBookingsPage() {
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
+            <LiveIndicator />
             {/* The Dedicated QR Scanner Button */}
             <button
               onClick={() => setIsScannerOpen(true)}
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition flex items-center gap-2"
+              className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition flex items-center gap-2 cursor-pointer"
             >
               <span className="text-sm">📷</span>
-              <span>{activeEventObj ? `Scan: ${activeEventObj.title}` : "QR Scanner"}</span>
+              <span>{activeEventObj ? `Scan: ${activeEventObj.title}` : "QR Gate Scanner Desk"}</span>
             </button>
-
           </div>
         </div>
 
         {/* View Switcher: Bookings vs Gate Attendance */}
-        <div className="mb-6 flex border-b border-neutral-200 dark:border-neutral-800">
+        <div className="mb-6 flex border-b border-neutral-200 dark:border-neutral-800 gap-4">
           <button
             onClick={() => setActiveMainTab("bookings")}
-            className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
               activeMainTab === "bookings"
-                ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
+                ? "border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
                 : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
             }`}
           >
             <span>📋 Bookings & Payment Proofs</span>
-            <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs">
+            <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono">
               {bookings.length}
             </span>
           </button>
@@ -278,14 +305,14 @@ export default function OrganizerBookingsPage() {
               setActiveMainTab("attendance");
               fetchIssuedTickets();
             }}
-            className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
               activeMainTab === "attendance"
-                ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
+                ? "border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400"
                 : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
             }`}
           >
-            <span>🎟️ Gate Attendance & Scanned Passes</span>
-            <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-xs font-bold">
+            <span>🎟️ Gate Check-in & Passes</span>
+            <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 text-xs font-black">
               {totalScanned}/{totalTicketsIssued}
             </span>
           </button>
