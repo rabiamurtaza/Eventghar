@@ -35,6 +35,10 @@ export default function AdminBookingsPage() {
   // Scanner Modal state
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
+  // PDF Download loading and progress states
+  const [isDownloadingBookings, setIsDownloadingBookings] = useState(false);
+  const [receiptsDownloadProgress, setReceiptsDownloadProgress] = useState<string | null>(null);
+
   async function fetchBookings() {
     setLoading(true);
     const supabase = createClient();
@@ -127,31 +131,42 @@ export default function AdminBookingsPage() {
     setActionLoading(null);
   };
 
-  const downloadEventBookingsPDF = () => {
-    const doc = new jsPDF();
-    doc.text(`Bookings Summary - ${eventFilter} (${statusFilter} Status)`, 14, 15);
-    
-    const tableData = filteredBookings.map(b => [
-      b.events ? `${b.events.event_number ? `#${b.events.event_number} - ` : ''}${b.events.title}` : "Unknown",
-      b.full_name || "N/A",
-      b.user_email || "N/A",
-      b.phone_number || "N/A",
-      `${b.ticket_type || 'Standard'} (Qty: ${b.number_of_tickets || 1})`,
-      b.status
-    ]);
+  const downloadEventBookingsPDF = async () => {
+    if (isDownloadingBookings || receiptsDownloadProgress) return;
+    setIsDownloadingBookings(true);
 
-    autoTable(doc, {
-      head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Status']],
-      body: tableData,
-      startY: 22,
-    });
+    try {
+      await new Promise(r => setTimeout(r, 60));
+      const doc = new jsPDF();
+      doc.text(`Bookings Summary - ${eventFilter} (${statusFilter} Status)`, 14, 15);
+      
+      const tableData = filteredBookings.map(b => [
+        b.events ? `${b.events.event_number ? `#${b.events.event_number} - ` : ''}${b.events.title}` : "Unknown",
+        b.full_name || "N/A",
+        b.user_email || "N/A",
+        b.phone_number || "N/A",
+        `${b.ticket_type || 'Standard'} (Qty: ${b.number_of_tickets || 1})`,
+        b.status
+      ]);
 
-    const safeEventName = eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    doc.save(`admin_bookings_${safeEventName}.pdf`);
+      autoTable(doc, {
+        head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Status']],
+        body: tableData,
+        startY: 22,
+      });
+
+      const safeEventName = eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      doc.save(`admin_bookings_${safeEventName}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate bookings PDF:", err);
+      alert("Failed to generate bookings PDF.");
+    } finally {
+      setIsDownloadingBookings(false);
+    }
   };
 
   const downloadVerifiedReceiptsPDF = async () => {
-    const doc = new jsPDF();
+    if (receiptsDownloadProgress || isDownloadingBookings) return;
     const verified = filteredBookings.filter(b => b.status === 'verified' || b.status === 'confirmed');
     
     if (verified.length === 0) {
@@ -159,61 +174,73 @@ export default function AdminBookingsPage() {
       return;
     }
 
-    doc.text(`Verified Receipts - ${eventFilter}`, 14, 15);
-    let yPos = 25;
+    try {
+      setReceiptsDownloadProgress(`Downloading 1 of ${verified.length}...`);
+      const doc = new jsPDF();
+      doc.text(`Verified Receipts - ${eventFilter}`, 14, 15);
+      let yPos = 25;
 
-    for (let i = 0; i < verified.length; i++) {
-      const b = verified[i];
-      if (yPos > 240) {
-        doc.addPage();
-        yPos = 20;
-      }
+      for (let i = 0; i < verified.length; i++) {
+        setReceiptsDownloadProgress(`Downloading ${i + 1} of ${verified.length}...`);
+        await new Promise(r => setTimeout(r, 40));
 
-      doc.setFontSize(11);
-      doc.text(`Event: ${b.events?.title || 'Unknown'} (Customer: ${b.full_name} | ${b.phone_number})`, 14, yPos);
-      yPos += 6;
-      doc.setFontSize(9);
-      doc.text(`Tickets: ${b.ticket_type} (x${b.number_of_tickets}) | Email: ${b.user_email}`, 14, yPos);
-      yPos += 6;
-      
-      if (b.payment_screenshot_url) {
-        doc.setTextColor(79, 70, 229);
-        doc.textWithLink('Direct Link: Payment Receipt', 14, yPos, { url: b.payment_screenshot_url });
-        doc.setTextColor(0, 0, 0);
-        yPos += 7;
+        const b = verified[i];
+        if (yPos > 240) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.text(`Event: ${b.events?.title || 'Unknown'} (Customer: ${b.full_name} | ${b.phone_number})`, 14, yPos);
+        yPos += 6;
+        doc.setFontSize(9);
+        doc.text(`Tickets: ${b.ticket_type} (x${b.number_of_tickets}) | Email: ${b.user_email}`, 14, yPos);
+        yPos += 6;
         
-        try {
-          const img = new Image();
-          img.crossOrigin = "Anonymous";
-          img.src = b.payment_screenshot_url;
-          await new Promise((resolve) => {
-             img.onload = () => {
-               const width = 90;
-               const height = (img.height * width) / img.width;
-               if (yPos + height > 280) {
-                 doc.addPage();
-                 yPos = 20;
-               }
-               doc.addImage(img, 'JPEG', 14, yPos, width, height);
-               yPos += height + 10;
-               resolve(null);
-             };
-             img.onerror = () => {
-               doc.text('(Image preview failed to load in PDF)', 14, yPos);
-               yPos += 10;
-               resolve(null);
-             };
-          });
-        } catch (e) {}
-      } else {
-        doc.text('No receipt image available.', 14, yPos);
-        yPos += 10;
+        if (b.payment_screenshot_url) {
+          doc.setTextColor(79, 70, 229);
+          doc.textWithLink('Direct Link: Payment Receipt', 14, yPos, { url: b.payment_screenshot_url });
+          doc.setTextColor(0, 0, 0);
+          yPos += 7;
+          
+          try {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = b.payment_screenshot_url;
+            await new Promise((resolve) => {
+               img.onload = () => {
+                 const width = 90;
+                 const height = (img.height * width) / img.width;
+                 if (yPos + height > 280) {
+                   doc.addPage();
+                   yPos = 20;
+                 }
+                 doc.addImage(img, 'JPEG', 14, yPos, width, height);
+                 yPos += height + 10;
+                 resolve(null);
+               };
+               img.onerror = () => {
+                 doc.text('(Image preview failed to load in PDF)', 14, yPos);
+                 yPos += 10;
+                 resolve(null);
+               };
+            });
+          } catch (e) {}
+        } else {
+          doc.text('No receipt image available.', 14, yPos);
+          yPos += 10;
+        }
+        yPos += 4; 
       }
-      yPos += 4; 
-    }
 
-    const safeEventName = eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    doc.save(`verified_receipts_${safeEventName}.pdf`);
+      const safeEventName = eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      doc.save(`verified_receipts_${safeEventName}.pdf`);
+    } catch (err) {
+      console.error("Error creating receipts PDF:", err);
+      alert("An error occurred while generating receipts PDF.");
+    } finally {
+      setReceiptsDownloadProgress(null);
+    }
   };
 
   const filteredBookings = bookings.filter(b => {
@@ -280,15 +307,31 @@ export default function AdminBookingsPage() {
             <>
               <button 
                 onClick={downloadEventBookingsPDF}
-                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm"
+                disabled={isDownloadingBookings || !!receiptsDownloadProgress}
+                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Download Bookings PDF
+                {isDownloadingBookings ? (
+                  <>
+                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+                    <span>Downloading PDF...</span>
+                  </>
+                ) : (
+                  <span>Download Bookings PDF</span>
+                )}
               </button>
               <button 
                 onClick={downloadVerifiedReceiptsPDF}
-                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm"
+                disabled={!!receiptsDownloadProgress || isDownloadingBookings}
+                className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Verified Receipts PDF
+                {receiptsDownloadProgress ? (
+                  <>
+                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                    <span>{receiptsDownloadProgress}</span>
+                  </>
+                ) : (
+                  <span>Verified Receipts PDF</span>
+                )}
               </button>
             </>
           )}

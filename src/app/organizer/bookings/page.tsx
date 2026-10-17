@@ -27,6 +27,10 @@ export default function OrganizerBookingsPage() {
   // Scanner Modal state
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
+  // PDF Download loading and progress states
+  const [isDownloadingBookings, setIsDownloadingBookings] = useState(false);
+  const [receiptsDownloadProgress, setReceiptsDownloadProgress] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchData() {
       const supabase = createClient();
@@ -111,30 +115,41 @@ export default function OrganizerBookingsPage() {
     }
   };
 
-  const downloadEventBookingsPDF = () => {
-    const doc = new jsPDF();
-    doc.text(`Bookings - ${eventFilter}`, 14, 15);
-    
-    const tableData = filteredBookings.map(b => [
-      b.events?.title || "Unknown",
-      b.full_name,
-      b.user_email,
-      b.phone_number,
-      `${b.ticket_type} (Qty: ${b.number_of_tickets})`,
-      b.status
-    ]);
+  const downloadEventBookingsPDF = async () => {
+    if (isDownloadingBookings || receiptsDownloadProgress) return;
+    setIsDownloadingBookings(true);
 
-    autoTable(doc, {
-      head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Status']],
-      body: tableData,
-      startY: 20,
-    });
+    try {
+      await new Promise(r => setTimeout(r, 60));
+      const doc = new jsPDF();
+      doc.text(`Bookings - ${eventFilter}`, 14, 15);
+      
+      const tableData = filteredBookings.map(b => [
+        b.events?.title || "Unknown",
+        b.full_name,
+        b.user_email,
+        b.phone_number,
+        `${b.ticket_type} (Qty: ${b.number_of_tickets})`,
+        b.status
+      ]);
 
-    doc.save(`bookings_${eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+      autoTable(doc, {
+        head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Status']],
+        body: tableData,
+        startY: 20,
+      });
+
+      doc.save(`bookings_${eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate bookings PDF:", err);
+      alert("Failed to generate bookings PDF.");
+    } finally {
+      setIsDownloadingBookings(false);
+    }
   };
 
   const downloadVerifiedReceiptsPDF = async () => {
-    const doc = new jsPDF();
+    if (receiptsDownloadProgress || isDownloadingBookings) return;
     const verified = filteredBookings.filter(b => b.status === 'verified' || b.status === 'confirmed');
     
     if (verified.length === 0) {
@@ -142,60 +157,72 @@ export default function OrganizerBookingsPage() {
       return;
     }
 
-    doc.text(`Verified Receipts - ${eventFilter}`, 14, 15);
-    let yPos = 25;
+    try {
+      setReceiptsDownloadProgress(`Downloading 1 of ${verified.length}...`);
+      const doc = new jsPDF();
+      doc.text(`Verified Receipts - ${eventFilter}`, 14, 15);
+      let yPos = 25;
 
-    for (let i = 0; i < verified.length; i++) {
-      const b = verified[i];
-      if (yPos > 250) {
-        doc.addPage();
-        yPos = 20;
-      }
+      for (let i = 0; i < verified.length; i++) {
+        setReceiptsDownloadProgress(`Downloading ${i + 1} of ${verified.length}...`);
+        await new Promise(r => setTimeout(r, 40));
 
-      doc.setFontSize(12);
-      doc.text(`Customer: ${b.full_name} | Phone: ${b.phone_number}`, 14, yPos);
-      yPos += 7;
-      doc.setFontSize(10);
-      doc.text(`Tickets: ${b.ticket_type} (x${b.number_of_tickets})`, 14, yPos);
-      yPos += 7;
-      
-      if (b.payment_screenshot_url) {
-        doc.setTextColor(0, 0, 255);
-        doc.textWithLink('Link: Payment Receipt', 14, yPos, { url: b.payment_screenshot_url });
-        doc.setTextColor(0, 0, 0);
-        yPos += 8;
+        const b = verified[i];
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.text(`Customer: ${b.full_name} | Phone: ${b.phone_number}`, 14, yPos);
+        yPos += 7;
+        doc.setFontSize(10);
+        doc.text(`Tickets: ${b.ticket_type} (x${b.number_of_tickets})`, 14, yPos);
+        yPos += 7;
         
-        try {
-          const img = new Image();
-          img.crossOrigin = "Anonymous";
-          img.src = b.payment_screenshot_url;
-          await new Promise((resolve) => {
-             img.onload = () => {
-               const width = 100;
-               const height = (img.height * width) / img.width;
-               if (yPos + height > 280) {
-                 doc.addPage();
-                 yPos = 20;
-               }
-               doc.addImage(img, 'JPEG', 14, yPos, width, height);
-               yPos += height + 10;
-               resolve(null);
-             };
-             img.onerror = () => {
-               doc.text('(Image failed to load in PDF)', 14, yPos);
-               yPos += 10;
-               resolve(null);
-             };
-          });
-        } catch (e) {}
-      } else {
-        doc.text('No receipt image available.', 14, yPos);
-        yPos += 10;
+        if (b.payment_screenshot_url) {
+          doc.setTextColor(0, 0, 255);
+          doc.textWithLink('Link: Payment Receipt', 14, yPos, { url: b.payment_screenshot_url });
+          doc.setTextColor(0, 0, 0);
+          yPos += 8;
+          
+          try {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = b.payment_screenshot_url;
+            await new Promise((resolve) => {
+               img.onload = () => {
+                 const width = 100;
+                 const height = (img.height * width) / img.width;
+                 if (yPos + height > 280) {
+                   doc.addPage();
+                   yPos = 20;
+                 }
+                 doc.addImage(img, 'JPEG', 14, yPos, width, height);
+                 yPos += height + 10;
+                 resolve(null);
+               };
+               img.onerror = () => {
+                 doc.text('(Image failed to load in PDF)', 14, yPos);
+                 yPos += 10;
+                 resolve(null);
+               };
+            });
+          } catch (e) {}
+        } else {
+          doc.text('No receipt image available.', 14, yPos);
+          yPos += 10;
+        }
+        yPos += 5; 
       }
-      yPos += 5; 
-    }
 
-    doc.save(`verified_receipts_${eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+      doc.save(`verified_receipts_${eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+    } catch (err) {
+      console.error("Error creating receipts PDF:", err);
+      alert("An error occurred while generating receipts PDF.");
+    } finally {
+      setReceiptsDownloadProgress(null);
+    }
   };
 
   if (loading) return <div className="p-12 text-center text-neutral-500">Loading bookings...</div>;
@@ -317,15 +344,31 @@ export default function OrganizerBookingsPage() {
               <div className="flex gap-2">
                 <button 
                   onClick={downloadEventBookingsPDF}
-                  className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition"
+                  disabled={isDownloadingBookings || !!receiptsDownloadProgress}
+                  className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  Download Bookings PDF
+                  {isDownloadingBookings ? (
+                    <>
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent" />
+                      <span>Downloading PDF...</span>
+                    </>
+                  ) : (
+                    <span>Download Bookings PDF</span>
+                  )}
                 </button>
                 <button 
                   onClick={downloadVerifiedReceiptsPDF}
-                  className="rounded-xl bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition"
+                  disabled={!!receiptsDownloadProgress || isDownloadingBookings}
+                  className="rounded-xl bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  Download Verified Receipts
+                  {receiptsDownloadProgress ? (
+                    <>
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>{receiptsDownloadProgress}</span>
+                    </>
+                  ) : (
+                    <span>Download Verified Receipts</span>
+                  )}
                 </button>
               </div>
             </div>
