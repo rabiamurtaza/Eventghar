@@ -249,17 +249,19 @@ export default function HeroSlider() {
           />
         ))}
 
-        {/* Dark Vignette Overlay for perfect text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/45 to-black/75 pointer-events-none z-10" />
+        {/* Dark Left Fade Overlay for perfect text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent pointer-events-none z-10" />
 
-        {/* Foreground Hero Text Content */}
-        <div className="relative z-20 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center pointer-events-none">
-          <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-md">
-            Discover & Experience Great Events
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base sm:text-lg lg:text-xl text-neutral-200 font-medium drop-shadow">
-            Find the latest concerts, workshops, conferences, and meetups happening near you.
-          </p>
+        {/* Foreground Hero Text Content (Left-aligned) */}
+        <div className="relative z-20 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-left pointer-events-none pt-12 sm:pt-16">
+          <div className="max-w-2xl">
+            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-md font-heading leading-tight">
+              Discover & Experience Great Events
+            </h1>
+            <p className="mt-4 text-base sm:text-lg lg:text-xl text-neutral-200 font-normal drop-shadow leading-relaxed font-body">
+              Find the latest concerts, workshops, conferences, and meetups happening near you.
+            </p>
+          </div>
         </div>
 
         {/* Non-Clickable Dot Indicators at Bottom Center */}

@@ -1,12 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Schibsted+Grotesk:ital,wght@0,400..700;1,400..700&display=swap');
 @import "tailwindcss";
 
 :root {
   /* Clean light background */
   --background: #f8fafc;
-  /* Dark text for readability */
-  --foreground: #0f172a;
+  /* Deep plum text color instead of pure black */
+  --foreground: #1c1230;
   
-  /* Deep purple/slate tone for surfaces (header, footer ONLY) */
+  /* Brand accents */
+  --brand-purple: #7a1fd1;
+  --brand-purple-hover: #6114ae;
+  --brand-purple-text: #6a17b8;
+  --brand-lavender: #f6effd;
+  --brand-plum: #1c1230;
+  --brand-plum-band: #2a1450;
+  --brand-plum-footer: #160b28;
+
+  /* Surfaces */
   --surface: #1e1b2e;
   --surface-border: #2d2942;
   --surface-hover: #262239;
@@ -18,13 +28,29 @@
   --color-surface: var(--surface);
   --color-surface-border: var(--surface-border);
   --color-surface-hover: var(--surface-hover);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Schibsted Grotesk', sans-serif;
+  --font-heading: 'Bricolage Grotesque', sans-serif;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: #1c1230;
+  font-family: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
+.dark body {
+  color: #f6effd;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+
+.font-heading {
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+
+.font-body {
+  font-family: 'Schibsted Grotesk', sans-serif;
+}

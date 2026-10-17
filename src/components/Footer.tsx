@@ -3,7 +3,7 @@ import { Mail } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-surface text-gray-300 py-12 mt-auto border-t border-surface-border">
+    <footer className="bg-[#160b28] text-gray-300 py-12 mt-auto border-t border-[#2a1450]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
@@ -70,7 +70,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-gray-800 text-sm text-center text-gray-500">
+        <div className="mt-12 pt-8 border-t border-[#2a1450] text-sm text-center text-gray-400">
           <p>&copy; {new Date().getFullYear()} Event Ghar. All rights reserved.</p>
         </div>
       </div>

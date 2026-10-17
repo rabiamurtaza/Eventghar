@@ -337,6 +337,7 @@ export default function AdminEditEvent() {
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Description / Details</label>
                 <textarea name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="Describe the event, what to expect, who is performing..." className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"></textarea>
+                <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">First line is the intro, then one line per heading like Heading: item, item, item.</p>
               </div>
             </div>
           </div>

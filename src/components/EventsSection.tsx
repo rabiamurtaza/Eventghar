@@ -3,10 +3,19 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import Link from "next/link";
+import EventDetailsModal from "@/components/EventDetailsModal";
 
 const CITIES = ["All", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
 const CATEGORIES = ["All", "Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
+
+function toTitleCase(str?: string): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 export default function EventsSection() {
   const router = useRouter();
@@ -23,7 +32,7 @@ export default function EventsSection() {
   useEffect(() => {
     async function fetchEvents() {
       const supabase = createClient();
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('events')
         .select('*, ticket_types(*)')
         .eq('status', 'published')
@@ -37,21 +46,9 @@ export default function EventsSection() {
     fetchEvents();
   }, []);
 
-  // Prevent background scrolling when modal is open
-  useEffect(() => {
-    if (selectedEvent) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => { document.body.style.overflow = "unset"; };
-  }, [selectedEvent]);
-
   // Filter logic
-  
   const displayPrice = (item: any) => {
     if (!item) return "Free";
-    // If passed entire event object
     if (typeof item === 'object' && !Array.isArray(item)) {
       if (item.ticket_price) {
         return displayPrice(item.ticket_price);
@@ -68,17 +65,14 @@ export default function EventsSection() {
     try {
       const parsed = typeof item === 'string' ? JSON.parse(item) : item;
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Find the lowest valid price, or return the first
-        const validPrices = parsed.map((t: any) => parseInt(t.price)).filter((p: number) => !isNaN(p));
+        const validPrices = parsed.map((t: any) => parseInt(t.price, 10)).filter((p: number) => !isNaN(p));
         if (validPrices.length > 0) {
           const minPrice = Math.min(...validPrices);
           return minPrice === 0 ? "Free" : `From Rs. ${minPrice.toLocaleString()}`;
         }
         return parsed[0].price === "Free" || parsed[0].price === "0" ? "Free" : `Rs. ${parsed[0].price}`;
       }
-    } catch(e) {
-      // not JSON, fallback to legacy
-    }
+    } catch(e) {}
     const num = Number(item);
     return isNaN(num) ? item : `Rs. ${num.toLocaleString()}`;
   };
@@ -107,55 +101,58 @@ export default function EventsSection() {
   }, [events, city, category, keyword]);
 
   return (
-    <section id="events" className="mt-16 scroll-mt-24 pb-20">
+    <section id="events" className="mt-12 sm:mt-16 scroll-mt-24 pb-16">
       {/* 1. SECTION HEADER */}
-      <div className="mb-8 md:mb-12">
-        <h2 className="text-3xl font-extrabold tracking-tight text-slate-900  sm:text-4xl">
+      <div className="mb-8 md:mb-10 text-left">
+        <h2 className="text-3xl font-extrabold tracking-tight text-[#1c1230] dark:text-white sm:text-4xl font-heading">
           Explore Upcoming Events
         </h2>
-        <p className="mt-3 text-lg text-neutral-600 ">
+        <p className="mt-2 text-base sm:text-lg text-neutral-600 dark:text-neutral-400 font-body">
           Filter by city, category, or search to find exactly what you are looking for.
         </p>
       </div>
 
-      {/* 2. FILTER BAR */}
-      <div className="mb-10 rounded-2xl bg-white p-6 shadow-sm border border-neutral-200  ">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end">
+      {/* 2. FILTER BAR: One consolidated white rounded bar with taller fields and bigger labels */}
+      <div className="mb-10 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#1a102b] p-5 sm:p-6 shadow-sm border border-neutral-200/90 dark:border-[#352453]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-end">
           
-          <div className="w-full md:w-auto flex-1">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">City</label>
+          <div>
+            <label className="block text-xs sm:text-sm font-semibold text-[#1c1230] dark:text-neutral-200 mb-1.5">
+              City
+            </label>
             <select 
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600   "
+              className="w-full h-12 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-3.5 text-sm text-[#1c1230] dark:text-white outline-none focus:border-[#7a1fd1] focus:ring-1 focus:ring-[#7a1fd1] transition"
             >
               {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
-          <div className="w-full md:w-auto flex-1">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Category</label>
+          <div>
+            <label className="block text-xs sm:text-sm font-semibold text-[#1c1230] dark:text-neutral-200 mb-1.5">
+              Category
+            </label>
             <select 
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600   "
+              className="w-full h-12 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-3.5 text-sm text-[#1c1230] dark:text-white outline-none focus:border-[#7a1fd1] focus:ring-1 focus:ring-[#7a1fd1] transition"
             >
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
-
-          <div className="w-full md:w-auto flex-[1.5]">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Search</label>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Keywords..."
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600   "
-              />
-            </div>
+          <div>
+            <label className="block text-xs sm:text-sm font-semibold text-[#1c1230] dark:text-neutral-200 mb-1.5">
+              Search
+            </label>
+            <input 
+              type="text" 
+              placeholder="Keywords..."
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="w-full h-12 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-3.5 text-sm text-[#1c1230] dark:text-white outline-none focus:border-[#7a1fd1] focus:ring-1 focus:ring-[#7a1fd1] transition placeholder:text-neutral-400"
+            />
           </div>
 
         </div>
@@ -163,58 +160,68 @@ export default function EventsSection() {
 
       {/* 3. EVENT GRID */}
       {loading ? (
-        <div className="py-20 text-center text-neutral-500 ">Loading events...</div>
+        <div className="py-20 text-center text-neutral-500 font-medium">Loading events...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event) => (
               <div 
                 key={event.id} 
                 onClick={() => setSelectedEvent(event)}
-                className="group relative overflow-hidden rounded-2xl bg-white border border-neutral-200 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-900/20 cursor-pointer   flex flex-col"
+                className="group relative overflow-hidden rounded-2xl bg-white dark:bg-[#1a102b] border border-neutral-200/90 dark:border-[#352453] shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#7a1fd1]/10 cursor-pointer flex flex-col"
               >
-                {/* Image Area */}
-                <div className="aspect-video w-full bg-neutral-100  flex items-center justify-center relative overflow-hidden">
+                {/* 16:10 Aspect Ratio Image Area on Top */}
+                <div className="aspect-[16/10] w-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center relative overflow-hidden">
                   {event.image_url ? (
-                    <img src={event.image_url} alt={event.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <img 
+                      src={event.image_url} 
+                      alt={event.title || "Event photo"} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                    />
                   ) : (
-                    <span className="text-slate-600  text-sm font-medium">No Image</span>
+                    <span className="text-neutral-400 text-sm font-medium">No Image</span>
                   )}
+
+                  {/* LIVE Badge on Published Events */}
                   {event.status === "published" && (
-                     <div className="absolute top-4 left-4 z-10 rounded bg-purple-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
-                       LIVE
-                     </div>
+                    <div className="absolute top-3.5 left-3.5 z-10 rounded-full bg-[#7a1fd1] px-2.5 py-0.5 text-[11px] font-bold text-white shadow-xs">
+                      LIVE
+                    </div>
                   )}
                 </div>
                 
-                <div className="p-6 flex flex-col flex-1">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-purple-400 dark:text-green-400 flex items-center gap-1.5">
+                {/* Card Content */}
+                <div className="p-5 sm:p-6 flex flex-col flex-1">
+                  {/* Date in purple on left, Category on right */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs sm:text-sm font-bold text-[#6a17b8] dark:text-[#c084fc] flex items-center gap-1.5">
                       {event.event_number && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold">
+                        <span className="text-xs px-2 py-0.5 rounded-md bg-[#f6effd] dark:bg-[#2b1b46] text-[#6a17b8] dark:text-[#c084fc] font-bold border border-[#ebdcfb] dark:border-[#462d6c]">
                           #{event.event_number}
                         </span>
                       )}
-                      {event.start_date || "TBD"}
+                      <span>{event.start_date || "TBD"}</span>
                     </span>
-                    <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold text-neutral-600  ">
-                      {event.category || "Uncategorized"}
+                    <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                      {event.category || "General"}
                     </span>
                   </div>
                   
-                  <h3 className="text-xl font-bold text-slate-900  mb-4 line-clamp-2">
-                    <span className="capitalize">{event.title || "Untitled Event"}</span>
+                  {/* Title in normal title case */}
+                  <h3 className="text-lg sm:text-xl font-bold text-[#1c1230] dark:text-white mb-4 line-clamp-2 font-heading">
+                    {toTitleCase(event.title || "Untitled Event")}
                   </h3>
                   
-                  <div className="mt-auto flex items-center justify-between text-neutral-500 ">
-                    <div className="flex items-center text-sm font-medium">
-                      <svg className="mr-1.5 h-4 w-4 text-slate-600 " fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  {/* Bottom row: City with pin on left, price on right */}
+                  <div className="mt-auto flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800/80">
+                    <div className="flex items-center text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-medium">
+                      <svg className="mr-1.5 h-4 w-4 text-[#6a17b8] dark:text-[#c084fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      {event.city || "Various"}
+                      <span>{event.city || "Various"}</span>
                     </div>
-                    <div className="text-sm font-bold text-slate-900 ">
+                    <div className="text-sm font-bold text-[#1c1230] dark:text-white">
                       {displayPrice(event)}
                     </div>
                   </div>
@@ -222,91 +229,19 @@ export default function EventsSection() {
               </div>
             ))
           ) : (
-            <div className="col-span-full py-12 text-center text-neutral-500 ">
+            <div className="col-span-full py-12 text-center text-neutral-500">
               No events found matching your filters.
             </div>
           )}
         </div>
       )}
 
-      {/* 4. MODAL FOR EVENT DETAILS */}
-      {selectedEvent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-            onClick={() => setSelectedEvent(null)}
-          />
-          
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white  border border-neutral-200  shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <button 
-              onClick={() => setSelectedEvent(null)}
-              className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-slate-900 hover:bg-black transition"
-            >
-              ✕
-            </button>
-
-            <div className="aspect-video w-full bg-neutral-100  flex items-center justify-center relative">
-              {selectedEvent.image_url ? (
-                <img src={selectedEvent.image_url} alt={selectedEvent.title || "Event Image"} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-slate-600  font-medium">No Image</span>
-              )}
-            </div>
-
-            <div className="p-6 sm:p-8">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-300 dark:bg-green-950/50 dark:text-green-400 border border-purple-700/50 dark:border-green-900/50">
-                  {selectedEvent.category || "Event"}
-                </span>
-                <span className="text-sm font-medium text-neutral-500 ">{selectedEvent.city}</span>
-              </div>
-
-              <h2 className="mb-2 text-2xl font-bold text-slate-900  sm:text-3xl"><span className="capitalize">{selectedEvent.title}</span></h2>
-              <p className="mb-6 text-neutral-600  leading-relaxed whitespace-pre-wrap">{selectedEvent.description}</p>
-              
-              <div className="mb-8 grid grid-cols-2 gap-4 rounded-xl bg-slate-50  p-4 border border-neutral-200 ">
-                <div>
-                  <p className="text-xs font-semibold uppercase text-neutral-500">Date</p>
-                  <p className="font-medium text-slate-900 ">{selectedEvent.start_date || "TBD"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase text-neutral-500">Time</p>
-                  <p className="font-medium text-slate-900 ">{selectedEvent.start_time || "TBD"}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-xs font-semibold uppercase text-neutral-500">Venue</p>
-                  <p className="font-medium text-slate-900 ">{selectedEvent.venue_name || "TBD"}</p>
-                </div>
-                {selectedEvent.google_maps_link && (
-                  <div className="col-span-2 mt-2">
-                    <a href={selectedEvent.google_maps_link} target="_blank" rel="noopener noreferrer" className="text-sm text-purple-400 hover:underline">
-                      View on Google Maps ↗
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-neutral-500 ">Ticket Price</p>
-                  <p className="text-2xl font-bold text-slate-900 ">
-                    {displayPrice(selectedEvent)}
-                  </p>
-                </div>
-                <button 
-                  onClick={() => handleBookTicketClick(selectedEvent)} 
-                  className="rounded-xl bg-purple-700 px-8 py-3 font-bold text-white transition hover:bg-purple-600 hover:-translate-y-1 active:translate-y-0 shadow-lg shadow-purple-500/30 text-center cursor-pointer"
-                >
-                  Book Tickets
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 4. DYNAMIC EVENT DETAILS MODAL */}
+      <EventDetailsModal
+        event={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        onBook={handleBookTicketClick}
+      />
     </section>
   );
 }
-
-
-
