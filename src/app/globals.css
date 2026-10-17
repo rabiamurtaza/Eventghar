@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Schibsted+Grotesk:ital,wght@0,400..700;1,400..700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   /* Clean light background */
   --background: #f8fafc;
@@ -30,6 +32,11 @@
   --color-surface-hover: var(--surface-hover);
   --font-sans: 'Schibsted Grotesk', sans-serif;
   --font-heading: 'Bricolage Grotesque', sans-serif;
+}
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
