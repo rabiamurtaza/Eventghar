@@ -46,6 +46,7 @@ export default function QRScannerModal({
 
   const html5QrCodeRef = useRef<any>(null);
   const isMountedRef = useRef(true);
+  const isScanLockedRef = useRef(false);
 
   // Set selectedEventId when fixedEventId changes or defaults
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function QRScannerModal({
   useEffect(() => {
     if (!isOpen) return;
     isMountedRef.current = true;
+    isScanLockedRef.current = false;
     let html5QrCode: any = null;
 
     async function startScanner() {
@@ -102,10 +104,14 @@ export default function QRScannerModal({
     return () => {
       clearTimeout(timer);
       isMountedRef.current = false;
+      isScanLockedRef.current = false;
       const scanner = html5QrCodeRef.current;
       if (scanner) {
         html5QrCodeRef.current = null;
         try {
+          if (scanner.isPaused?.()) {
+            try { scanner.resume(); } catch (e) {}
+          }
           if (scanner.isScanning) {
             scanner.stop().then(() => {
               try { scanner.clear(); } catch (e) {}
@@ -133,23 +139,49 @@ export default function QRScannerModal({
 
   const handleDismissResult = () => {
     setCurrentResult(null);
-    // 350ms cooldown ensures the user can pull their phone/ticket away before scanner re-reads
+
+    // 400ms cooldown ensures user pulls the phone/ticket away before scanner re-enables
     setTimeout(() => {
       if (isMountedRef.current) {
+        try {
+          const scanner = html5QrCodeRef.current;
+          if (scanner && typeof scanner.resume === "function") {
+            if (scanner.isPaused?.()) {
+              scanner.resume();
+            }
+          }
+        } catch (resumeErr) {
+          console.warn("Could not resume camera scanner:", resumeErr);
+        }
+        isScanLockedRef.current = false;
         setIsProcessing(false);
       }
-    }, 350);
+    }, 400);
   };
 
   const handleDecodedText = async (decodedText: string) => {
-    if (isProcessing) return;
+    // 1. Synchronous lock check: immediately blocks concurrent or duplicate frames
+    if (isScanLockedRef.current) return;
+    isScanLockedRef.current = true;
     setIsProcessing(true);
+
+    // 2. Pause camera scanner immediately so it stops analyzing frames
+    try {
+      const scanner = html5QrCodeRef.current;
+      if (scanner && typeof scanner.pause === "function") {
+        if (!scanner.isPaused?.()) {
+          scanner.pause(true);
+        }
+      }
+    } catch (pauseErr) {
+      console.warn("Could not pause camera scanner:", pauseErr);
+    }
 
     const supabase = createClient();
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
     try {
-      // 1. Parse JSON payload
+      // 3. Parse JSON payload
       let parsed: any = null;
       try {
         parsed = JSON.parse(decodedText);
@@ -169,7 +201,7 @@ export default function QRScannerModal({
         return;
       }
 
-      // 2. Check Event Matching
+      // 4. Check Event Matching
       // If selectedEventId is set, verify that ticket belongs to this event
       if (selectedEventId && parsed.event_id && parsed.event_id !== selectedEventId) {
         playErrorBuzzer();
@@ -194,7 +226,7 @@ export default function QRScannerModal({
         return;
       }
 
-      // 3. Database Check
+      // 5. Database Check
       const { data: ticket, error } = await supabase
         .from("issued_tickets")
         .select(`
@@ -224,7 +256,7 @@ export default function QRScannerModal({
         return;
       }
 
-      // 4. Check if already used
+      // 6. Check if already used
       if (ticket.status === "used") {
         playErrorBuzzer();
         const scannedTimeFormatted = ticket.scanned_at
@@ -248,7 +280,7 @@ export default function QRScannerModal({
         return;
       }
 
-      // 5. Valid Entry! Mark ticket as 'used'
+      // 7. Valid Entry! Mark ticket as 'used'
       const { data: { session } } = await supabase.auth.getSession();
       const nowIso = new Date().toISOString();
 
@@ -429,7 +461,7 @@ export default function QRScannerModal({
                 )}
               </div>
 
-              {/* Simple OK button that dismisses the result and returns to scanner */}
+              {/* Simple OK button that dismisses the result and resumes the scanner */}
               <button
                 type="button"
                 autoFocus
