@@ -47,6 +47,7 @@ export default function QRScannerModal({
   const html5QrCodeRef = useRef<any>(null);
   const isMountedRef = useRef(true);
   const isScanLockedRef = useRef(false);
+  const lastScannedTicketRef = useRef<{ code: string; time: number } | null>(null);
 
   // Set selectedEventId when fixedEventId changes or defaults
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function QRScannerModal({
     if (!isOpen) return;
     isMountedRef.current = true;
     isScanLockedRef.current = false;
+    lastScannedTicketRef.current = null;
     let html5QrCode: any = null;
 
     async function startScanner() {
@@ -105,14 +107,14 @@ export default function QRScannerModal({
       clearTimeout(timer);
       isMountedRef.current = false;
       isScanLockedRef.current = false;
+      lastScannedTicketRef.current = null;
       const scanner = html5QrCodeRef.current;
       if (scanner) {
         html5QrCodeRef.current = null;
         try {
-          if (scanner.isPaused?.()) {
-            try { scanner.resume(); } catch (e) {}
-          }
-          if (scanner.isScanning) {
+          const state = typeof scanner.getState === "function" ? scanner.getState() : null;
+          // State 2 = SCANNING, State 3 = PAUSED
+          if (scanner.isScanning || state === 2 || state === 3) {
             scanner.stop().then(() => {
               try { scanner.clear(); } catch (e) {}
             }).catch(() => {});
@@ -124,7 +126,7 @@ export default function QRScannerModal({
     };
   }, [isOpen, selectedEventId]);
 
-  // Keyboard shortcut (Enter, Space, Escape) to dismiss the result card and return to scanning
+  // Keyboard shortcut (Enter, Space, Escape) to dismiss the result card and instantly resume scanning
   useEffect(() => {
     if (!currentResult) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -138,44 +140,28 @@ export default function QRScannerModal({
   }, [currentResult]);
 
   const handleDismissResult = () => {
+    // Instantly dismiss result and unlock scanner with zero delay
     setCurrentResult(null);
-
-    // 400ms cooldown ensures user pulls the phone/ticket away before scanner re-enables
-    setTimeout(() => {
-      if (isMountedRef.current) {
-        try {
-          const scanner = html5QrCodeRef.current;
-          if (scanner && typeof scanner.resume === "function") {
-            if (scanner.isPaused?.()) {
-              scanner.resume();
-            }
-          }
-        } catch (resumeErr) {
-          console.warn("Could not resume camera scanner:", resumeErr);
-        }
-        isScanLockedRef.current = false;
-        setIsProcessing(false);
-      }
-    }, 400);
+    setIsProcessing(false);
+    isScanLockedRef.current = false;
   };
 
   const handleDecodedText = async (decodedText: string) => {
-    // 1. Synchronous lock check: immediately blocks concurrent or duplicate frames
+    // 1. Synchronous lock check: immediately ignore frames while reviewing current result or verifying
     if (isScanLockedRef.current) return;
+
+    // 2. Prevent instant duplicate re-reads of the same ticket immediately after dismissal (2.5s cooldown)
+    if (
+      lastScannedTicketRef.current &&
+      lastScannedTicketRef.current.code === decodedText &&
+      Date.now() - lastScannedTicketRef.current.time < 2500
+    ) {
+      return;
+    }
+
     isScanLockedRef.current = true;
     setIsProcessing(true);
-
-    // 2. Pause camera scanner immediately so it stops analyzing frames
-    try {
-      const scanner = html5QrCodeRef.current;
-      if (scanner && typeof scanner.pause === "function") {
-        if (!scanner.isPaused?.()) {
-          scanner.pause(true);
-        }
-      }
-    } catch (pauseErr) {
-      console.warn("Could not pause camera scanner:", pauseErr);
-    }
+    lastScannedTicketRef.current = { code: decodedText, time: Date.now() };
 
     const supabase = createClient();
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -391,9 +377,31 @@ export default function QRScannerModal({
             <div className="relative w-full max-w-[300px] aspect-square rounded-2xl overflow-hidden border-2 border-indigo-500/50 shadow-inner bg-neutral-950">
               <div id="qr-camera-feed" className="w-full h-full object-cover"></div>
 
+              {/* Force hide any internal html5-qrcode pause/banner overlays */}
+              <style
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    #qr-camera-feed div[style*="rgba(9, 9, 9"],
+                    #qr-camera-feed div[style*="background: rgba"] {
+                      display: none !important;
+                    }
+                  `,
+                }}
+              />
+
               {/* Viewfinder Target Overlay */}
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-48 h-48 border-2 border-dashed border-indigo-400/70 rounded-xl animate-pulse"></div>
+                <div
+                  className={`w-48 h-48 border-2 rounded-xl transition-all duration-200 ${
+                    currentResult
+                      ? currentResult.type === "success"
+                        ? "border-green-400 bg-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                        : currentResult.type === "wrong_event"
+                        ? "border-amber-400 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                        : "border-red-400 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                      : "border-dashed border-indigo-400/70 animate-pulse"
+                  }`}
+                ></div>
               </div>
 
               {isProcessing && !currentResult && (
