@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { deleteEventCascade } from "@/utils/eventService";
 
 export default function DraftsPage() {
   const [drafts, setDrafts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventToDelete, setEventToDelete] = useState<{ id: string | number; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   async function fetchDrafts() {
     const supabase = createClient();
@@ -36,27 +40,34 @@ export default function DraftsPage() {
     if (!error) {
       // Remove from drafts list
       setDrafts(prev => prev.filter(draft => draft.id !== id));
-      alert("Event published successfully!");
+      setFeedbackMsg({ type: "success", text: "Event published successfully!" });
     } else {
-      alert("Error publishing event: " + error.message);
+      setFeedbackMsg({ type: "error", text: "Error publishing event: " + error.message });
     }
   };
 
-  const handleDelete = async (id: string | number) => {
-    if (!confirm("Are you sure you want to delete this event?")) return;
-    
+  const confirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    setIsDeleting(true);
+    setFeedbackMsg(null);
     const supabase = createClient();
-    const { error } = await supabase
-      .from('events')
-      .delete()
-      .eq('id', id);
-    
-    if (!error) {
-      setDrafts(prev => prev.filter(draft => draft.id !== id));
-      alert("Event deleted successfully!");
+
+    const result = await deleteEventCascade(supabase, eventToDelete.id);
+
+    if (result.success) {
+      setDrafts(prev => prev.filter(draft => draft.id !== eventToDelete.id));
+      setFeedbackMsg({
+        type: "success",
+        text: `Draft "${eventToDelete.title}" and all related data were permanently deleted.`,
+      });
+      setEventToDelete(null);
     } else {
-      alert("Error deleting event: " + error.message);
+      setFeedbackMsg({
+        type: "error",
+        text: result.error || "Failed to delete draft.",
+      });
     }
+    setIsDeleting(false);
   };
 
   return (
@@ -72,6 +83,24 @@ export default function DraftsPage() {
             </p>
           </div>
         </div>
+
+        {feedbackMsg && (
+          <div
+            className={`mb-6 p-4 rounded-xl text-sm font-medium border flex items-center justify-between ${
+              feedbackMsg.type === "success"
+                ? "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800"
+                : "bg-red-50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+            }`}
+          >
+            <span>{feedbackMsg.text}</span>
+            <button
+              onClick={() => setFeedbackMsg(null)}
+              className="text-xs font-bold hover:opacity-70 ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12 text-neutral-500">Loading drafts...</div>
@@ -125,8 +154,8 @@ export default function DraftsPage() {
                         Edit
                       </Link>
                       <button 
-                        onClick={() => handleDelete(draft.id)}
-                        className="flex-1 rounded-lg bg-red-100 dark:bg-red-900/30 py-2 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-200 dark:hover:bg-red-900/50"
+                        onClick={() => setEventToDelete({ id: draft.id, title: draft.title || "Untitled Draft" })}
+                        className="flex-1 rounded-lg bg-red-100 dark:bg-red-900/30 py-2 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-200 dark:hover:bg-red-900/50 cursor-pointer"
                       >
                         Delete
                       </button>
@@ -138,6 +167,64 @@ export default function DraftsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Permanently Confirmation Modal */}
+      {eventToDelete && (
+        <div
+          onClick={() => !isDeleting && setEventToDelete(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl text-[#1c1230] dark:text-white animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
+              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-950/60 flex items-center justify-center shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Delete permanently?</h3>
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6 leading-relaxed">
+              Are you sure you want to delete <strong className="text-neutral-900 dark:text-white">&quot;{eventToDelete.title}&quot;</strong>? Everything related to this event—including all attendee bookings, payment records, and issued QR tickets—will be permanently deleted.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setEventToDelete(null)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeleteEvent}
+                className="rounded-xl bg-red-600 hover:bg-red-700 text-white px-5 py-2 text-sm font-bold transition shadow-md shadow-red-600/20 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Permanently"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
