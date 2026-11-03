@@ -26,6 +26,7 @@ export default function AdminEditEvent() {
   const [actualEventId, setActualEventId] = useState<string>(id);
   const [eventNumber, setEventNumber] = useState<number | null>(null);
   const [organizers, setOrganizers] = useState<any[]>([]);
+  const [eventNotFound, setEventNotFound] = useState(false);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -53,7 +54,7 @@ export default function AdminEditEvent() {
       } else {
         query = query.eq('id', id);
       }
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
       if (data) {
         setActualEventId(data.id);
         if (data.event_number) setEventNumber(data.event_number);
@@ -114,6 +115,8 @@ export default function AdminEditEvent() {
             if (Array.isArray(parsed) && parsed.length > 0) setPaymentAccounts(parsed);
           } catch(e) {}
         }
+      } else {
+        setEventNotFound(true);
       }
       setInitialLoading(false);
     }
@@ -280,6 +283,32 @@ export default function AdminEditEvent() {
   };
 
   if (initialLoading) return <div className="min-h-screen flex items-center justify-center dark:bg-neutral-950 dark:text-white">Loading event data...</div>;
+
+  if (eventNotFound) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Event Not Found</h2>
+          <p className="text-neutral-600 dark:text-neutral-400 mb-6 text-sm">
+            The event you are trying to edit could not be found or has been removed.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link href="/admin/published" className="flex-1 rounded-xl bg-green-500 px-4 py-2.5 font-bold text-white transition hover:bg-green-600 text-center">
+              Published Events
+            </Link>
+            <Link href="/admin/drafts" className="flex-1 rounded-xl bg-neutral-200 dark:bg-neutral-800 px-4 py-2.5 font-bold text-neutral-800 dark:text-neutral-200 transition hover:bg-neutral-300 dark:hover:bg-neutral-700 text-center">
+              Drafts
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 px-4 py-12 sm:px-6 lg:px-8">

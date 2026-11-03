@@ -28,7 +28,10 @@ export async function generateTicketsForBooking(
     events?: {
       title?: string;
       event_number?: number | string;
-    };
+    } | Array<{
+      title?: string;
+      event_number?: number | string;
+    }>;
   }
 ) {
   // 1. Check if tickets already exist for this booking
@@ -43,17 +46,16 @@ export async function generateTicketsForBooking(
   }
 
   // 2. Fetch event details if missing
-  let eventNumber = booking.events?.event_number;
-  let eventTitle = booking.events?.title;
+  const evtObj = Array.isArray(booking.events) ? booking.events[0] : booking.events;
+  let eventNumber = evtObj?.event_number;
   if (!eventNumber) {
     const { data: eventData } = await supabase
       .from("events")
-      .select("event_number, title")
+      .select("event_number")
       .eq("id", booking.event_id)
-      .single();
+      .maybeSingle();
     if (eventData) {
       eventNumber = eventData.event_number;
-      eventTitle = eventData.title;
     }
   }
 
@@ -99,7 +101,7 @@ export async function generateTicketsForBooking(
 export function buildQRPayload(ticket: {
   id: string;
   ticket_code: string;
-  event_id: string;
+  event_id?: string;
   ticket_number: number;
   total_tickets: number;
   holder_name: string;
@@ -108,7 +110,7 @@ export function buildQRPayload(ticket: {
     app: "EVENT_GHAR",
     ticket_code: ticket.ticket_code,
     ticket_id: ticket.id,
-    event_id: ticket.event_id,
+    event_id: ticket.event_id || "",
     event_title: eventTitle || "Event",
     ticket_number: ticket.ticket_number,
     total_tickets: ticket.total_tickets,
@@ -123,7 +125,7 @@ export function buildQRPayload(ticket: {
 export function playSuccessChime() {
   if (typeof window === "undefined") return;
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
 
@@ -151,7 +153,7 @@ export function playSuccessChime() {
 export function playErrorBuzzer() {
   if (typeof window === "undefined") return;
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
 

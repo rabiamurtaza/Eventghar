@@ -5,8 +5,11 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const { searchParams } = requestUrl
   const code = searchParams.get('code')
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/'
+  // Validate and sanitize the redirect destination to prevent open-redirect attacks
+  const rawNext = searchParams.get('next') ?? '/'
+  const next = (rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\'))
+    ? rawNext
+    : '/'
 
   // Determine site origin: use NEXT_PUBLIC_SITE_URL, forwarded host from reverse proxy (e.g. Vercel), or request origin
   const forwardedHost = request.headers.get('x-forwarded-host')

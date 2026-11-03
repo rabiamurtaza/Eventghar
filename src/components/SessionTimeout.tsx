@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function SessionTimeout() {
   const router = useRouter();
-  const supabase = createClient();
-  // Use ReturnType<typeof setTimeout> to avoid NodeJS vs browser typing issues
+  const supabase = useMemo(() => createClient(), []);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let isActive = true;
     let currentTimeoutDuration = 15 * 60 * 1000; // Default to 15 mins
+    let cleanupListeners: (() => void) | null = null;
 
     const logout = async () => {
       if (!isActive) return;
@@ -26,23 +26,30 @@ export default function SessionTimeout() {
       timeoutRef.current = setTimeout(logout, currentTimeoutDuration);
     };
 
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // If no session, no need to track inactivity for logout
-      if (!session) return;
+    const removeCurrentListeners = () => {
+      if (cleanupListeners) {
+        cleanupListeners();
+        cleanupListeners = null;
+      }
+    };
 
-      // Determine the role for customized timeout
+    const setupUserActivity = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !isActive) return;
+
+      // Determine role safely using maybeSingle
       let role = 'user';
-      const { data: admin } = await supabase.from('admins').select('id').eq('id', session.user.id).single();
-      
+      const { data: admin } = await supabase.from('admins').select('id').eq('id', session.user.id).maybeSingle();
+
       if (admin) {
         role = 'admin';
       } else {
-        const { data: organizer } = await supabase.from('organizers').select('id').eq('id', session.user.id).single();
+        const { data: organizer } = await supabase.from('organizers').select('id').eq('id', session.user.id).maybeSingle();
         if (organizer) role = 'organizer';
       }
-      
+
+      if (!isActive) return;
+
       // 45 minutes for admin, 15 minutes for users and organizers
       currentTimeoutDuration = role === 'admin' 
         ? 45 * 60 * 1000 
@@ -50,9 +57,10 @@ export default function SessionTimeout() {
 
       resetTimer();
 
+      // Clean up previous listeners before attaching new ones
+      removeCurrentListeners();
+
       const events = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
-      
-      // We throttle the reset to avoid running it on every single pixel of mouse movement
       let throttled = false;
       const handleActivity = () => {
         if (!throttled) {
@@ -62,28 +70,20 @@ export default function SessionTimeout() {
         }
       };
 
-      events.forEach(event => window.addEventListener(event, handleActivity));
-
-      return () => {
+      events.forEach(event => window.addEventListener(event, handleActivity, { passive: true }));
+      cleanupListeners = () => {
         events.forEach(event => window.removeEventListener(event, handleActivity));
       };
     };
 
-    let cleanupEvents: (() => void) | undefined;
+    setupUserActivity();
 
-    checkUser().then(cleanup => {
-      cleanupEvents = cleanup;
-    });
-    
-    // Subscribe to auth state changes to start/stop tracking
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
-        checkUser().then(cleanup => {
-          cleanupEvents = cleanup;
-        });
+        setupUserActivity();
       } else if (event === 'SIGNED_OUT') {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        if (cleanupEvents) cleanupEvents();
+        removeCurrentListeners();
       }
     });
 
@@ -91,7 +91,7 @@ export default function SessionTimeout() {
       isActive = false;
       subscription.unsubscribe();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (cleanupEvents) cleanupEvents();
+      removeCurrentListeners();
     };
   }, [router, supabase]);
 

@@ -24,6 +24,16 @@ function validateImageFile(file: File, fieldName: string): string | null {
   return null;
 }
 
+function normalizePhoneNumber(phone: string): string {
+  let cleaned = phone.replace(/[\s\-\(\)]/g, "");
+  if (cleaned.startsWith("+92")) {
+    cleaned = "0" + cleaned.slice(3);
+  } else if (cleaned.startsWith("92") && cleaned.length === 12) {
+    cleaned = "0" + cleaned.slice(2);
+  }
+  return cleaned;
+}
+
 export default function BookTicketPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? "");
@@ -97,13 +107,13 @@ export default function BookTicketPage() {
       if (fetchedPhone) setPhoneNumber(fetchedPhone);
 
       let query = supabase.from('events').select('*');
-      const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id));
+      const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id, 10));
       if (isNum) {
-        query = query.eq('event_number', parseInt(id));
+        query = query.eq('event_number', parseInt(id, 10));
       } else {
         query = query.eq('id', id);
       }
-      const { data: eventData, error } = await query.single();
+      const { data: eventData } = await query.maybeSingle();
       
       if (eventData) {
         setEvent(eventData);
@@ -144,12 +154,23 @@ export default function BookTicketPage() {
     if (id) init();
   }, [id, router]);
 
+  const maxAllowedTickets = (event?.is_student_only === true || event?.is_student_only === "true")
+    ? 1
+    : Math.max(1, Number(event?.max_tickets_per_person) || 3);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setErrorMsg("");
+
+    if (!event || !event.id) {
+      setErrorMsg("Event could not be found. Please refresh and try again.");
+      setSubmitting(false);
+      return;
+    }
     
-    if (!phoneNumber || !/^\d{11}$/.test(phoneNumber.trim())) {
+    const cleanPhone = normalizePhoneNumber(phoneNumber);
+    if (!cleanPhone || !/^\d{11}$/.test(cleanPhone)) {
       setErrorMsg("Please provide a valid 11-digit phone number (e.g. 03001234567).");
       setSubmitting(false);
       return;
@@ -208,12 +229,12 @@ export default function BookTicketPage() {
       }
 
       const payload = {
-        event_id: event?.id || id,
+        event_id: event.id,
         user_email: session.user.email,
         full_name: fullName.trim(),
-        phone_number: phoneNumber.trim(),
-        ticket_type: ticketType,
-        number_of_tickets: numberOfTickets,
+        phone_number: cleanPhone,
+        ticket_type: ticketType || 'Standard',
+        number_of_tickets: Math.min(numberOfTickets, maxAllowedTickets),
         payment_screenshot_url: paymentScreenshotUrl,
         student_id_url: studentIdUrl,
         status: 'pending'
@@ -222,16 +243,29 @@ export default function BookTicketPage() {
       const { error: insertError } = await supabase.from('bookings').insert([payload]);
       if (insertError) throw insertError;
 
-      // Ensure user profile has phone_number and full_name saved in users table
+      // Update phone_number and full_name in appropriate profile without overwriting organizer role
       try {
-        await supabase.from('users').upsert({
-          id: session.user.id,
-          email: session.user.email,
-          full_name: fullName.trim(),
-          phone_number: phoneNumber.trim(),
-        }, { onConflict: 'id' });
+        const { data: orgCheck } = await supabase
+          .from('organizers')
+          .select('id')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (orgCheck) {
+          await supabase.from('organizers').update({
+            full_name: fullName.trim(),
+            phone_number: cleanPhone,
+          }).eq('id', session.user.id);
+        } else {
+          await supabase.from('users').upsert({
+            id: session.user.id,
+            email: session.user.email,
+            full_name: fullName.trim(),
+            phone_number: cleanPhone,
+          }, { onConflict: 'id' });
+        }
       } catch (profileErr) {
-        console.error("Failed to update users profile with phone number:", profileErr);
+        console.error("Failed to update user profile with phone number:", profileErr);
       }
 
       setSuccess(true);
@@ -243,6 +277,27 @@ export default function BookTicketPage() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center dark:bg-neutral-950 dark:text-white">Loading booking page...</div>;
+
+  if (!event) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">Event Not Found</h2>
+          <p className="text-neutral-600 dark:text-neutral-400 mb-6 text-sm">
+            The event you are trying to book does not exist or may have been removed.
+          </p>
+          <Link href="/events" className="inline-block w-full rounded-xl bg-green-500 px-6 py-3 font-bold text-white transition hover:bg-green-600 shadow-lg shadow-green-500/30">
+            Browse Other Events
+          </Link>
+        </div>
+      </div>
+    );
+  }
   
   if (success) {
     return (
@@ -265,7 +320,7 @@ export default function BookTicketPage() {
 
   // Determine selected ticket price
   const selectedTicket = ticketOptions.find(t => t.name === ticketType);
-  const pricePerTicket = selectedTicket ? parseInt(selectedTicket.price || '0') : 0;
+  const pricePerTicket = selectedTicket ? parseInt(selectedTicket.price || '0', 10) : 0;
   const totalPrice = isNaN(pricePerTicket) ? 0 : pricePerTicket * numberOfTickets;
 
   return (
@@ -275,36 +330,36 @@ export default function BookTicketPage() {
         {/* Left Side: Event & Payment Info */}
         <div className="space-y-6">
           <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            {event?.image_url && <img src={event.image_url} alt="Event" className="w-full h-48 object-cover rounded-xl mb-4" />}
+            {event.image_url && <img src={event.image_url} alt="Event" className="w-full h-48 object-cover rounded-xl mb-4" />}
             <div className="flex items-center justify-between gap-2 mb-2">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">{event?.title}</h2>
-              {event?.event_number && (
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">{event.title}</h2>
+              {event.event_number && (
                 <span className="rounded-md bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-xs font-bold text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
                   #{event.event_number}
                 </span>
               )}
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{event?.start_date} | {event?.venue_name}</p>
-            {event?.is_student_only && (
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{event.start_date} | {event.venue_name}</p>
+            {event.is_student_only && (
               <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 mb-4">
-                Student Only Event {event?.university_name && `- ${event.university_name}`}
+                Student Only Event {event.university_name && `- ${event.university_name}`}
               </span>
             )}
 
             <div className="grid grid-cols-2 gap-4 mb-6 text-sm text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-              {event?.doors_open_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">Doors Open</span>{event.doors_open_time}</div>}
-              {event?.start_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">Start Time</span>{event.start_time}</div>}
-              {event?.end_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">End Time</span>{event.end_time}</div>}
-              {event?.sales_deadline && <div><span className="font-semibold text-neutral-900 dark:text-white block">Sales Deadline</span>{event.sales_deadline}</div>}
-              {event?.organizer_name && <div><span className="font-semibold text-neutral-900 dark:text-white block">Organizer</span>{event.organizer_name}</div>}
-              {event?.organizer_contact && <div><span className="font-semibold text-neutral-900 dark:text-white block">Contact</span>{event.organizer_contact}</div>}
+              {event.doors_open_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">Doors Open</span>{event.doors_open_time}</div>}
+              {event.start_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">Start Time</span>{event.start_time}</div>}
+              {event.end_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">End Time</span>{event.end_time}</div>}
+              {event.sales_deadline && <div><span className="font-semibold text-neutral-900 dark:text-white block">Sales Deadline</span>{event.sales_deadline}</div>}
+              {event.organizer_name && <div><span className="font-semibold text-neutral-900 dark:text-white block">Organizer</span>{event.organizer_name}</div>}
+              {event.organizer_contact && <div><span className="font-semibold text-neutral-900 dark:text-white block">Contact</span>{event.organizer_contact}</div>}
             </div>
-            <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{event?.description}</p>
+            <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{event.description}</p>
           </div>
 
           <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">Payment Instructions</h3>
-            {event?.payment_instructions && (
+            {event.payment_instructions && (
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6 bg-neutral-50 dark:bg-neutral-950 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
                 {event.payment_instructions}
               </p>
@@ -364,7 +419,7 @@ export default function BookTicketPage() {
 
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                Phone Number * <span className="text-xs text-neutral-400">(11 digits, e.g. 03001234567)</span>
+                Phone Number * <span className="text-xs text-neutral-400">(e.g. 03001234567 or +923001234567)</span>
               </label>
               <input 
                 type="tel" 
@@ -383,47 +438,30 @@ export default function BookTicketPage() {
                   {ticketOptions.map((t, i) => (
                     <option key={i} value={t.name}>{t.name} (Rs. {t.price})</option>
                   ))}
-                  {ticketOptions.length === 0 && <option value="general">General (Free)</option>}
+                  {ticketOptions.length === 0 && <option value="Standard">Standard (Free)</option>}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Number of Tickets * <span className="text-xs text-neutral-400">({(event?.is_student_only === true || event?.is_student_only === 'true') ? 'Max 1' : 'Max 3'})</span>
+                  Number of Tickets * <span className="text-xs text-neutral-400">({(event.is_student_only === true || event.is_student_only === 'true') ? 'Max 1' : `Max ${maxAllowedTickets}`})</span>
                 </label>
                 <input 
                   type="number" 
                   required 
                   min={1} 
-                  max={(event?.is_student_only === true || event?.is_student_only === 'true') ? 1 : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3))} 
+                  max={maxAllowedTickets} 
                   step={1}
                   value={numberOfTickets} 
                   onFocus={e => e.target.select()}
-                  onKeyDown={e => {
-                    if (["1", "2", "3"].includes(e.key)) {
-                      const maxVal = (event?.is_student_only === true || event?.is_student_only === 'true') ? 1 : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3));
-                      const pressed = parseInt(e.key, 10);
-                      if (pressed <= maxVal) {
-                        e.preventDefault();
-                        setNumberOfTickets(pressed);
-                      }
-                    }
-                  }}
                   onChange={e => {
                     const raw = e.target.value;
                     if (raw === "") {
                       setNumberOfTickets(1);
                       return;
                     }
-                    const maxVal = (event?.is_student_only === true || event?.is_student_only === 'true') ? 1 : Math.min(3, Math.max(1, Number(event?.max_tickets_per_person) || 3));
-                    const lastChar = raw.slice(-1);
-                    const digit = parseInt(lastChar, 10);
-                    if (!isNaN(digit) && digit >= 1 && digit <= maxVal) {
-                      setNumberOfTickets(digit);
-                      return;
-                    }
-                    let val = parseInt(raw, 10) || 1;
-                    if (val > maxVal) val = maxVal;
-                    if (val < 1) val = 1;
+                    let val = parseInt(raw, 10);
+                    if (isNaN(val) || val < 1) val = 1;
+                    if (val > maxAllowedTickets) val = maxAllowedTickets;
                     setNumberOfTickets(val);
                   }} 
                   className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
@@ -467,15 +505,15 @@ export default function BookTicketPage() {
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
               <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                Student ID Card Picture {event?.is_student_only === true || event?.is_student_only === "true" ? <span className="text-red-500">*</span> : <span className="text-neutral-400 font-normal">(Optional)</span>}
+                Student ID Card Picture {event.is_student_only === true || event.is_student_only === "true" ? <span className="text-red-500">*</span> : <span className="text-neutral-400 font-normal">(Optional)</span>}
                 <span className="text-xs font-normal text-neutral-400 block sm:inline sm:ml-2">(.png, .jpg, .jpeg under 5MB)</span>
               </label>
               <p className="text-xs text-neutral-500 mb-3">
-                {event?.is_student_only === true || event?.is_student_only === "true" ? "This is a student-only event. You must upload your student ID." : "Upload your student ID if applicable."}
+                {event.is_student_only === true || event.is_student_only === "true" ? "This is a student-only event. You must upload your student ID." : "Upload your student ID if applicable."}
               </p>
               <input 
                 type="file" 
-                required={event?.is_student_only === true || event?.is_student_only === "true"} 
+                required={event.is_student_only === true || event.is_student_only === "true"} 
                 accept="image/png, image/jpeg, image/jpg, image/webp" 
                 onChange={e => {
                   const file = e.target.files?.[0] || null;

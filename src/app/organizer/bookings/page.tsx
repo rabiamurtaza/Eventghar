@@ -57,13 +57,25 @@ export default function OrganizerBookingsPage() {
         .eq('organizer_id', session.user.id)
         .eq('status', 'published');
 
-      const [bookingsRes, eventsRes] = await Promise.all([query, eventsQuery]);
+      const ticketsQuery = supabase
+        .from('issued_tickets')
+        .select(`
+          *,
+          events!inner(id, title, organizer_id, event_number)
+        `)
+        .eq('events.organizer_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      const [bookingsRes, eventsRes, ticketsRes] = await Promise.all([query, eventsQuery, ticketsQuery]);
       
       if (bookingsRes.data) {
         setBookings(bookingsRes.data);
       }
       if (eventsRes.data) {
         setEventsList(eventsRes.data);
+      }
+      if (ticketsRes.data) {
+        setIssuedTickets(ticketsRes.data);
       }
       setLoading(false);
     }

@@ -39,39 +39,54 @@ export default function AdminBookingsPage() {
   const [isDownloadingBookings, setIsDownloadingBookings] = useState(false);
   const [receiptsDownloadProgress, setReceiptsDownloadProgress] = useState<string | null>(null);
 
-  async function fetchBookings() {
-    setLoading(true);
-    const supabase = createClient();
+  useEffect(() => {
+    let isMounted = true;
+    async function loadInitialData() {
+      const supabase = createClient();
+      const [bookingsRes, eventsRes, ticketsRes] = await Promise.all([
+        supabase
+          .from('bookings')
+          .select(`
+            *,
+            events (
+              id,
+              title,
+              event_number,
+              organizer_name,
+              organizer_contact,
+              organizer_id
+            )
+          `)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('events')
+          .select('id, title, event_number')
+          .order('title', { ascending: true }),
+        supabase
+          .from('issued_tickets')
+          .select(`
+            *,
+            events (
+              id,
+              title,
+              event_number
+            )
+          `)
+          .order('created_at', { ascending: false })
+      ]);
 
-    const [bookingsRes, eventsRes] = await Promise.all([
-      supabase
-        .from('bookings')
-        .select(`
-          *,
-          events (
-            id,
-            title,
-            event_number,
-            organizer_name,
-            organizer_contact,
-            organizer_id
-          )
-        `)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('events')
-        .select('id, title, event_number')
-        .order('title', { ascending: true })
-    ]);
+      if (!isMounted) return;
+      if (bookingsRes.data) setBookings(bookingsRes.data);
+      if (eventsRes.data) setEventsList(eventsRes.data);
+      if (ticketsRes.data) setIssuedTickets(ticketsRes.data);
+      setLoading(false);
+    }
 
-    if (bookingsRes.data) {
-      setBookings(bookingsRes.data);
-    }
-    if (eventsRes.data) {
-      setEventsList(eventsRes.data);
-    }
-    setLoading(false);
-  }
+    loadInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function fetchIssuedTickets() {
     setAttendanceLoading(true);
@@ -93,11 +108,6 @@ export default function AdminBookingsPage() {
     }
     setAttendanceLoading(false);
   }
-
-  useEffect(() => {
-    fetchBookings();
-    fetchIssuedTickets();
-  }, []);
 
   const updateStatus = async (id: string, newStatus: string) => {
     setActionLoading(id);

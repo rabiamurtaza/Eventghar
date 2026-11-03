@@ -4,6 +4,19 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "923000000000";
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@eventghar.pk";
+
+function normalizePhoneNumber(phone: string): string {
+  let cleaned = phone.replace(/[\s\-\(\)]/g, "");
+  if (cleaned.startsWith("+92")) {
+    cleaned = "0" + cleaned.slice(3);
+  } else if (cleaned.startsWith("92") && cleaned.length === 12) {
+    cleaned = "0" + cleaned.slice(2);
+  }
+  return cleaned;
+}
+
 export default function ContactUsPage() {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -59,8 +72,9 @@ export default function ContactUsPage() {
     setLoading(true);
     setErrorMsg("");
 
-    if (!phoneNumber || !/^\d{11}$/.test(phoneNumber.trim())) {
-      setErrorMsg("Please enter a valid 11-digit phone number (e.g. 03001234567).");
+    const cleanPhone = normalizePhoneNumber(phoneNumber);
+    if (!cleanPhone || !/^\d{11}$/.test(cleanPhone)) {
+      setErrorMsg("Please enter a valid 11-digit phone number (e.g. 03001234567 or +923001234567).");
       setLoading(false);
       return;
     }
@@ -79,7 +93,7 @@ export default function ContactUsPage() {
         {
           full_name: fullName.trim(),
           email: email.trim(),
-          phone_number: phoneNumber.trim(),
+          phone_number: cleanPhone,
           category: category,
           message: eventReference ? `[Event Ref: ${eventReference}]\n\n${message.trim()}` : message.trim(),
           status: "pending",
@@ -135,7 +149,7 @@ export default function ContactUsPage() {
 
             <div className="space-y-3 pt-2">
               <a
-                href={`https://wa.me/923000000000?text=${whatsappMessage}`}
+                href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-700 px-5 py-3 text-sm font-bold text-white transition shadow-sm"
@@ -169,7 +183,7 @@ export default function ContactUsPage() {
                       <p className="font-semibold text-slate-900 dark:text-white">WhatsApp Support</p>
                       <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Instant help for ticket & gate issues</p>
                       <a 
-                        href={`https://wa.me/923000000000?text=${encodeURIComponent("Hello Event Ghar Support, I need help with an issue.")}`}
+                        href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent("Hello Event Ghar Support, I need help with an issue.")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline mt-1 inline-block"
@@ -185,10 +199,10 @@ export default function ContactUsPage() {
                       <p className="font-semibold text-slate-900 dark:text-white">Email Us</p>
                       <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Support & event inquiries</p>
                       <a 
-                        href="mailto:support@eventghar.pk" 
+                        href={`mailto:${SUPPORT_EMAIL}`} 
                         className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline mt-1 inline-block"
                       >
-                        support@eventghar.pk
+                        {SUPPORT_EMAIL}
                       </a>
                     </div>
                   </div>

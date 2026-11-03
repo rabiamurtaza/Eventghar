@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -33,16 +33,17 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname
 
+  const isBookTicket = path.startsWith('/book/')
   const isBookEvent = path.startsWith('/book-event')
   const isAdmin = path.startsWith('/admin')
   const isOrganizer = path.startsWith('/organizer')
   const isMyAccount = path.startsWith('/my-account')
 
-  if (!isBookEvent && !isAdmin && !isOrganizer && !isMyAccount) {
+  if (!isBookTicket && !isBookEvent && !isAdmin && !isOrganizer && !isMyAccount) {
     return supabaseResponse
   }
 
-  // Not logged in -> redirect to login
+  // Not logged in -> redirect to login with redirect destination
   if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -50,16 +51,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If we reach here, user is logged in. Let's fetch their role.
-  let role = 'user';
-  const { data: admin } = await supabase.from('admins').select('id').eq('id', user.id).single();
-  
+  // User is logged in. Fetch role safely using maybeSingle
+  let role = 'user'
+  const { data: admin } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle()
+
   if (admin) {
-    role = 'admin';
+    role = 'admin'
   } else {
-    const { data: organizer } = await supabase.from('organizers').select('id').eq('id', user.id).single();
+    const { data: organizer } = await supabase.from('organizers').select('id').eq('id', user.id).maybeSingle()
     if (organizer) {
-      role = 'organizer';
+      role = 'organizer'
     }
   }
 
@@ -84,8 +85,11 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse
 }
 
+export default proxy
+
 export const config = {
   matcher: [
+    '/book/:path*',
     '/book-event/:path*',
     '/admin/:path*',
     '/organizer/:path*',

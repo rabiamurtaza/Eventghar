@@ -90,6 +90,15 @@ export default function QRScannerModal({
             // Frame failed to parse QR - ignore normal continuous scanning noise
           }
         );
+
+        // If user closed modal while camera was starting up, stop and release immediately
+        if (!isMountedRef.current) {
+          try {
+            await html5QrCode.stop();
+            html5QrCode.clear();
+          } catch {}
+          return;
+        }
       } catch (err: any) {
         console.error("Failed to start camera scanner:", err);
         setScannerError(

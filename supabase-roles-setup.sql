@@ -185,14 +185,21 @@ BEGIN
   END IF;
 END $$;
 
+DROP POLICY IF EXISTS "Public Update Access" ON storage.objects;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public Update Access'
+    SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Admin and Organizer Update Storage'
   ) THEN
-    CREATE POLICY "Public Update Access"
+    CREATE POLICY "Admin and Organizer Update Storage"
     ON storage.objects FOR UPDATE
-    USING (bucket_id IN ('payment-screenshots', 'student-ids', 'event-images'));
+    TO authenticated
+    USING (
+      bucket_id IN ('payment-screenshots', 'student-ids', 'event-images') AND (
+        auth.uid() IN (SELECT id FROM public.admins) OR
+        auth.uid() IN (SELECT id FROM public.organizers)
+      )
+    );
   END IF;
 END $$;
 
@@ -228,6 +235,31 @@ BEGIN
   ) THEN
     CREATE POLICY "Allow admins select on contact_messages"
     ON public.contact_messages FOR SELECT
+    USING (auth.uid() IN (SELECT id FROM public.admins));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'contact_messages' AND policyname = 'Allow admins update on contact_messages'
+  ) THEN
+    CREATE POLICY "Allow admins update on contact_messages"
+    ON public.contact_messages FOR UPDATE
+    TO authenticated
+    USING (auth.uid() IN (SELECT id FROM public.admins))
+    WITH CHECK (auth.uid() IN (SELECT id FROM public.admins));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'contact_messages' AND policyname = 'Allow admins delete on contact_messages'
+  ) THEN
+    CREATE POLICY "Allow admins delete on contact_messages"
+    ON public.contact_messages FOR DELETE
+    TO authenticated
     USING (auth.uid() IN (SELECT id FROM public.admins));
   END IF;
 END $$;

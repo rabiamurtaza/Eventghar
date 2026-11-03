@@ -4,9 +4,30 @@ import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { buildQRPayload } from "@/utils/ticketService";
 
-interface TicketPassCardProps {
-  booking: any;
-  passes: any[];
+export interface PassItem {
+  id: string;
+  ticket_code: string;
+  ticket_number: number;
+  total_tickets: number;
+  ticket_type?: string;
+  holder_name: string;
+  holder_email?: string;
+  event_id?: string;
+  status: string;
+}
+
+export interface TicketPassCardProps {
+  booking: {
+    id: string;
+    event?: {
+      title?: string;
+      event_number?: number | string;
+      start_date?: string;
+      venue_name?: string;
+    };
+    [key: string]: unknown;
+  };
+  passes: PassItem[];
 }
 
 export default function TicketPassCard({ booking, passes }: TicketPassCardProps) {
@@ -33,6 +54,9 @@ export default function TicketPassCard({ booking, passes }: TicketPassCardProps)
     const svg = document.getElementById(`qr-svg-${currentPass.id}`);
     if (!svg) return;
     const svgData = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const blobUrl = URL.createObjectURL(blob);
+
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
@@ -48,8 +72,12 @@ export default function TicketPassCard({ booking, passes }: TicketPassCardProps)
         a.href = canvas.toDataURL("image/png");
         a.click();
       }
+      URL.revokeObjectURL(blobUrl);
     };
-    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    img.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+    };
+    img.src = blobUrl;
   };
 
   return (
@@ -142,7 +170,7 @@ export default function TicketPassCard({ booking, passes }: TicketPassCardProps)
         <div className="mt-5 w-full flex items-center justify-center gap-2">
           <button
             onClick={downloadQR}
-            className="w-full max-w-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5"
+            className="w-full max-w-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <span>⬇️</span> Save / Download QR
           </button>

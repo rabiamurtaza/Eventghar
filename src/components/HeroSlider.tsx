@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 // Sliding duration: edit this constant to change slide speed
@@ -16,7 +16,7 @@ export default function HeroSlider() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Swipe / Drag tracking references
   const touchStartX = useRef<number | null>(null);
@@ -24,12 +24,12 @@ export default function HeroSlider() {
   const isMouseDown = useRef<boolean>(false);
   const mouseStartX = useRef<number | null>(null);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // 1. Fetch images from Supabase table hero_images
   const fetchHeroImages = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("hero_images")
         .select("image_url")
         .order("created_at", { ascending: true });
@@ -44,37 +44,42 @@ export default function HeroSlider() {
 
   // 2. Check Admin role (matching Navbar logic)
   useEffect(() => {
+    let isSubscribed = true;
+
     async function checkRole() {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!isSubscribed) return;
       if (session) {
         const { data: admin } = await supabase
           .from("admins")
           .select("id")
           .eq("id", session.user.id)
-          .single();
-        setIsAdmin(!!admin);
+          .maybeSingle();
+        if (isSubscribed) setIsAdmin(!!admin);
       } else {
-        setIsAdmin(false);
+        if (isSubscribed) setIsAdmin(false);
       }
     }
 
     checkRole();
     fetchHeroImages();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isSubscribed) return;
       if (session) {
-        supabase
+        const { data: admin } = await supabase
           .from("admins")
           .select("id")
           .eq("id", session.user.id)
-          .single()
-          .then(({ data }) => setIsAdmin(!!data));
+          .maybeSingle();
+        if (isSubscribed) setIsAdmin(!!admin);
       } else {
-        setIsAdmin(false);
+        if (isSubscribed) setIsAdmin(false);
       }
     });
 
     return () => {
+      isSubscribed = false;
       subscription.unsubscribe();
     };
   }, [supabase, fetchHeroImages]);
@@ -215,9 +220,10 @@ export default function HeroSlider() {
 
       // Clear file input
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Hero image upload failed:", err);
-      setUploadError(err.message || "Failed to upload image. Please verify admin privileges.");
+      const msg = err instanceof Error ? err.message : "Failed to upload image. Please verify admin privileges.";
+      setUploadError(msg);
     } finally {
       setUploading(false);
     }

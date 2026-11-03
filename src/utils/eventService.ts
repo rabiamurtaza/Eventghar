@@ -57,8 +57,9 @@ export async function deleteEventCascade(
     }
 
     return { success: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Unexpected error in deleteEventCascade:", err);
-    return { success: false, error: err.message || "An unexpected error occurred while deleting the event." };
+    const msg = err instanceof Error ? err.message : "An unexpected error occurred while deleting the event.";
+    return { success: false, error: msg };
   }
 }
