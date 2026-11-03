@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import { getEventLifecycle } from "@/utils/eventLifecycle";
 
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
@@ -42,6 +43,10 @@ export default function BookTicketPage() {
   const [session, setSession] = useState<any>(null);
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Inventory & Capacity state
+  const [totalBooked, setTotalBooked] = useState(0);
+  const [tierBookings, setTierBookings] = useState<Record<string, number>>({});
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -117,6 +122,27 @@ export default function BookTicketPage() {
       
       if (eventData) {
         setEvent(eventData);
+
+        // Fetch active bookings for capacity & tier inventory tracking
+        const { data: bookingsData } = await supabase
+          .from('bookings')
+          .select('ticket_type, number_of_tickets, status')
+          .eq('event_id', eventData.id)
+          .in('status', ['verified', 'confirmed', 'pending']);
+
+        let total = 0;
+        const byTier: Record<string, number> = {};
+        if (bookingsData) {
+          bookingsData.forEach((b: any) => {
+            const count = Number(b.number_of_tickets) || 1;
+            total += count;
+            const tType = b.ticket_type || 'Standard';
+            byTier[tType] = (byTier[tType] || 0) + count;
+          });
+        }
+        setTotalBooked(total);
+        setTierBookings(byTier);
+
         let tiers: any[] = [];
         if (eventData.ticket_price) {
           try {
@@ -139,7 +165,13 @@ export default function BookTicketPage() {
 
         if (tiers.length > 0) {
           setTicketOptions(tiers);
-          setTicketType(tiers[0].name);
+          // Set to first tier that is not sold out if possible
+          const firstAvailable = tiers.find(t => {
+            const tLimit = t.total ? Number(t.total) : null;
+            const tBooked = byTier[t.name] || 0;
+            return tLimit === null || (tLimit - tBooked) > 0;
+          });
+          setTicketType(firstAvailable ? firstAvailable.name : tiers[0].name);
         }
 
         if (eventData.payment_accounts) {
@@ -154,9 +186,27 @@ export default function BookTicketPage() {
     if (id) init();
   }, [id, router]);
 
-  const maxAllowedTickets = (event?.is_student_only === true || event?.is_student_only === "true")
+  // Compute event lifecycle & remaining inventory
+  const lifecycle = getEventLifecycle(event, totalBooked);
+  const overallRemaining = lifecycle.remainingTickets;
+
+  const selectedTicket = ticketOptions.find(t => t.name === ticketType);
+  const selectedTierLimit = selectedTicket && selectedTicket.total ? Number(selectedTicket.total) : null;
+  const tierBookedCount = tierBookings[ticketType] || 0;
+  const tierRemaining = selectedTierLimit !== null ? Math.max(0, selectedTierLimit - tierBookedCount) : null;
+
+  const baseMaxAllowed = (event?.is_student_only === true || event?.is_student_only === "true")
     ? 1
     : Math.max(1, Number(event?.max_tickets_per_person) || 3);
+
+  const effectiveMaxAllowed = Math.max(
+    1,
+    Math.min(
+      baseMaxAllowed,
+      overallRemaining !== null ? overallRemaining : baseMaxAllowed,
+      tierRemaining !== null ? tierRemaining : baseMaxAllowed
+    )
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +215,26 @@ export default function BookTicketPage() {
 
     if (!event || !event.id) {
       setErrorMsg("Event could not be found. Please refresh and try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Double-check real-time event status and capacity limits
+    const currentLifecycle = getEventLifecycle(event, totalBooked);
+    if (!currentLifecycle.canBook) {
+      setErrorMsg(currentLifecycle.reason || "Booking is currently unavailable for this event.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (overallRemaining !== null && numberOfTickets > overallRemaining) {
+      setErrorMsg(`Cannot book ${numberOfTickets} ticket(s). Only ${overallRemaining} ticket(s) are remaining for this event.`);
+      setSubmitting(false);
+      return;
+    }
+
+    if (tierRemaining !== null && numberOfTickets > tierRemaining) {
+      setErrorMsg(`Only ${tierRemaining} ticket(s) remaining for ${ticketType}. Please adjust quantity.`);
       setSubmitting(false);
       return;
     }
@@ -234,7 +304,7 @@ export default function BookTicketPage() {
         full_name: fullName.trim(),
         phone_number: cleanPhone,
         ticket_type: ticketType || 'Standard',
-        number_of_tickets: Math.min(numberOfTickets, maxAllowedTickets),
+        number_of_tickets: Math.min(numberOfTickets, effectiveMaxAllowed),
         payment_screenshot_url: paymentScreenshotUrl,
         student_id_url: studentIdUrl,
         status: 'pending'
@@ -291,7 +361,33 @@ export default function BookTicketPage() {
           <p className="text-neutral-600 dark:text-neutral-400 mb-6 text-sm">
             The event you are trying to book does not exist or may have been removed.
           </p>
-          <Link href="/events" className="inline-block w-full rounded-xl bg-green-500 px-6 py-3 font-bold text-white transition hover:bg-green-600 shadow-lg shadow-green-500/30">
+          <Link href="/#events" className="inline-block w-full rounded-xl bg-green-500 px-6 py-3 font-bold text-white transition hover:bg-green-600 shadow-lg shadow-green-500/30">
+            Browse Other Events
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Blocked Lifecycle Screen (Sold Out, Sales Closed, or Ended)
+  if (event && !lifecycle.canBook) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+          <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
+            {lifecycle.status === 'sold_out' ? '🎟️' : lifecycle.status === 'ended' ? '🏁' : '⏱️'}
+          </div>
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
+            {lifecycle.status === 'sold_out' 
+              ? 'Event Sold Out' 
+              : lifecycle.status === 'sales_closed' 
+                ? 'Ticket Sales Closed' 
+                : 'Event Concluded'}
+          </h2>
+          <p className="text-neutral-600 dark:text-neutral-400 mb-6 text-sm">
+            {lifecycle.reason || 'Bookings are currently unavailable for this event.'}
+          </p>
+          <Link href="/#events" className="inline-block w-full rounded-xl bg-green-500 px-6 py-3 font-bold text-white transition hover:bg-green-600 shadow-lg shadow-green-500/30">
             Browse Other Events
           </Link>
         </div>
@@ -319,7 +415,6 @@ export default function BookTicketPage() {
   }
 
   // Determine selected ticket price
-  const selectedTicket = ticketOptions.find(t => t.name === ticketType);
   const pricePerTicket = selectedTicket ? parseInt(selectedTicket.price || '0', 10) : 0;
   const totalPrice = isNaN(pricePerTicket) ? 0 : pricePerTicket * numberOfTickets;
 
@@ -333,11 +428,16 @@ export default function BookTicketPage() {
             {event.image_url && <img src={event.image_url} alt="Event" className="w-full h-48 object-cover rounded-xl mb-4" />}
             <div className="flex items-center justify-between gap-2 mb-2">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">{event.title}</h2>
-              {event.event_number && (
-                <span className="rounded-md bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-xs font-bold text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
-                  #{event.event_number}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`rounded-full ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider`}>
+                  {lifecycle.label}
                 </span>
-              )}
+                {event.event_number && (
+                  <span className="rounded-md bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 text-xs font-bold text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
+                    #{event.event_number}
+                  </span>
+                )}
+              </div>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{event.start_date} | {event.venue_name}</p>
             {event.is_student_only && (
@@ -379,9 +479,28 @@ export default function BookTicketPage() {
 
         {/* Right Side: Booking Form */}
         <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800 shadow-sm h-fit">
-          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
             Book Tickets
           </h2>
+
+          {/* Prominent Live Remaining Tickets Banner */}
+          {overallRemaining !== null && (
+            <div className={`mb-5 p-3.5 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-semibold ${
+              overallRemaining <= 10 
+                ? "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50" 
+                : "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50"
+            }`}>
+              <div className="flex items-center gap-2">
+                <span className="text-base">{overallRemaining <= 10 ? "🔥" : "🎫"}</span>
+                <span>
+                  {overallRemaining <= 10 
+                    ? `High Demand: Only ${overallRemaining} tickets left!` 
+                    : `${overallRemaining} of ${event.total_tickets} tickets available`}
+                </span>
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider opacity-80">Live Capacity</span>
+            </div>
+          )}
 
           {errorMsg && (
             <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/50 dark:border-red-900/50 dark:text-red-400 text-sm font-medium">
@@ -434,22 +553,41 @@ export default function BookTicketPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Ticket Type *</label>
-                <select value={ticketType} onChange={e => setTicketType(e.target.value)} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white">
-                  {ticketOptions.map((t, i) => (
-                    <option key={i} value={t.name}>{t.name} (Rs. {t.price})</option>
-                  ))}
+                <select 
+                  value={ticketType} 
+                  onChange={e => {
+                    setTicketType(e.target.value);
+                    setNumberOfTickets(1);
+                  }} 
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+                >
+                  {ticketOptions.map((t, i) => {
+                    const tLimit = t.total ? Number(t.total) : null;
+                    const tBooked = tierBookings[t.name] || 0;
+                    const tLeft = tLimit !== null ? Math.max(0, tLimit - tBooked) : null;
+                    const isTierSoldOut = tLeft !== null && tLeft <= 0;
+                    return (
+                      <option key={i} value={t.name} disabled={isTierSoldOut}>
+                        {t.name} (Rs. {t.price}) {tLeft !== null ? (isTierSoldOut ? '— Sold Out' : `• ${tLeft} left`) : ''}
+                      </option>
+                    );
+                  })}
                   {ticketOptions.length === 0 && <option value="Standard">Standard (Free)</option>}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Number of Tickets * <span className="text-xs text-neutral-400">({(event.is_student_only === true || event.is_student_only === 'true') ? 'Max 1' : `Max ${maxAllowedTickets}`})</span>
+                  Number of Tickets * <span className="text-xs text-neutral-400">
+                    ({(event.is_student_only === true || event.is_student_only === 'true') 
+                      ? 'Max 1' 
+                      : `Max ${effectiveMaxAllowed}`})
+                  </span>
                 </label>
                 <input 
                   type="number" 
                   required 
                   min={1} 
-                  max={maxAllowedTickets} 
+                  max={effectiveMaxAllowed} 
                   step={1}
                   value={numberOfTickets} 
                   onFocus={e => e.target.select()}
@@ -461,7 +599,7 @@ export default function BookTicketPage() {
                     }
                     let val = parseInt(raw, 10);
                     if (isNaN(val) || val < 1) val = 1;
-                    if (val > maxAllowedTickets) val = maxAllowedTickets;
+                    if (val > effectiveMaxAllowed) val = effectiveMaxAllowed;
                     setNumberOfTickets(val);
                   }} 
                   className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
@@ -533,7 +671,7 @@ export default function BookTicketPage() {
               />
             </div>
 
-            <button type="submit" disabled={submitting} className="mt-4 w-full rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50">
+            <button type="submit" disabled={submitting} className="mt-4 w-full rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer">
               {submitting ? "Submitting Request..." : "Request Review / Submit"}
             </button>
           </form>

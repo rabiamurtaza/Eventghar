@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { getEventLifecycle } from "@/utils/eventLifecycle";
 
 interface EventDetailsModalProps {
   event: any | null;
   onClose: () => void;
   onBook: (event: any) => void;
+  bookedCount?: number;
 }
 
 // Convert uppercase strings like "MUBALI ISLAND TRIP" to normal title case: "Mubali Island Trip"
@@ -187,6 +189,7 @@ export default function EventDetailsModal({
   event,
   onClose,
   onBook,
+  bookedCount = 0,
 }: EventDetailsModalProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -224,6 +227,7 @@ export default function EventDetailsModal({
   const venue = event.venue_name || event.full_address || "";
   const mapsUrl = event.google_maps_link || (venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue + " " + city)}` : "");
   const priceDisplay = getLowestPriceDisplay(event);
+  const lifecycle = getEventLifecycle(event, bookedCount);
 
   const { intro, sections, plainParagraphs, headingsSummary, hasExtraDetails } = parseDescription(event.description);
 
@@ -268,6 +272,11 @@ export default function EventDetailsModal({
             {/* Dark bottom gradient fade for smooth text legibility */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent pointer-events-none" />
 
+            {/* Top Left Lifecycle Badge */}
+            <div className={`absolute top-3.5 left-3.5 z-20 rounded-full ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2.5 py-0.5 text-[11px] font-bold shadow-xs tracking-wider uppercase`}>
+              {lifecycle.label}
+            </div>
+
             {/* Round Close Button at Top Right */}
             <button
               type="button"
@@ -306,6 +315,27 @@ export default function EventDetailsModal({
                 </p>
               )}
             </div>
+
+            {/* Inactive / Closed Notice if not bookable */}
+            {!lifecycle.canBook && (
+              <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 p-3 text-xs text-amber-900 dark:text-amber-200 font-semibold flex items-center gap-2">
+                <span className="text-base shrink-0">⚠️</span>
+                <span>{lifecycle.reason || "Booking is currently unavailable for this event."}</span>
+              </div>
+            )}
+
+            {/* Remaining tickets alert if actively bookable */}
+            {lifecycle.canBook && lifecycle.remainingTickets !== null && (
+              <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span>🎫</span>
+                  <span>Tickets Remaining</span>
+                </span>
+                <span className="font-bold">
+                  {lifecycle.remainingTickets} left {lifecycle.totalTickets ? `of ${lifecycle.totalTickets}` : ''}
+                </span>
+              </div>
+            )}
 
             {/* Student Only Note if enabled */}
             {event.is_student_only && (
@@ -508,19 +538,30 @@ export default function EventDetailsModal({
         <div className="sticky bottom-0 bg-white/95 dark:bg-[#140d24]/95 backdrop-blur-md border-t border-neutral-200/90 dark:border-neutral-800 px-5 py-3.5 flex items-center justify-between rounded-b-none sm:rounded-b-[24px] shrink-0">
           <div>
             <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-              Tickets from
+              {lifecycle.canBook ? "Tickets from" : "Booking Status"}
             </span>
             <span className="text-lg font-bold text-[#1c1230] dark:text-white">
-              {priceDisplay}
+              {lifecycle.canBook ? priceDisplay : lifecycle.label}
             </span>
           </div>
 
           <button
             type="button"
-            onClick={() => onBook(event)}
-            className="rounded-xl bg-[#7a1fd1] hover:bg-[#6114ae] text-white font-bold text-sm px-6 py-3 transition shadow-lg shadow-[#7a1fd1]/25 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a1fd1] focus-visible:ring-offset-2 cursor-pointer"
+            disabled={!lifecycle.canBook}
+            onClick={() => lifecycle.canBook && onBook(event)}
+            className={`rounded-xl font-bold text-sm px-6 py-3 transition shadow-lg focus-visible:outline-none ${
+              lifecycle.canBook
+                ? "bg-[#7a1fd1] hover:bg-[#6114ae] text-white shadow-[#7a1fd1]/25 active:scale-[0.98] cursor-pointer"
+                : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 shadow-none cursor-not-allowed"
+            }`}
           >
-            Book tickets
+            {lifecycle.status === 'ended' 
+              ? 'Event Ended' 
+              : lifecycle.status === 'sold_out' 
+                ? 'Sold Out' 
+                : lifecycle.status === 'sales_closed' 
+                  ? 'Sales Closed' 
+                  : 'Book tickets'}
           </button>
         </div>
       </div>

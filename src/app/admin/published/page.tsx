@@ -5,9 +5,11 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import QRScannerModal from "@/components/QRScannerModal";
 import { deleteEventCascade } from "@/utils/eventService";
+import { getEventLifecycle } from "@/utils/eventLifecycle";
 
 export default function PublishedEventsPage() {
   const [events, setEvents] = useState<any[]>([]);
+  const [bookingsMap, setBookingsMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [scannerEvent, setScannerEvent] = useState<{ id: string; title: string } | null>(null);
   const [eventToDelete, setEventToDelete] = useState<{ id: string | number; title: string } | null>(null);
@@ -16,14 +18,29 @@ export default function PublishedEventsPage() {
 
   async function fetchEvents() {
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .eq('status', 'published')
-      .order('created_at', { ascending: false });
+    const [eventsRes, bookingsRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select('*')
+        .eq('status', 'published')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('bookings')
+        .select('event_id, number_of_tickets, status')
+        .in('status', ['verified', 'confirmed', 'pending'])
+    ]);
 
-    if (data) {
-      setEvents(data);
+    if (eventsRes.data) {
+      setEvents(eventsRes.data);
+    }
+    if (bookingsRes.data) {
+      const counts: Record<string, number> = {};
+      bookingsRes.data.forEach((b: any) => {
+        if (b.event_id) {
+          counts[b.event_id] = (counts[b.event_id] || 0) + (Number(b.number_of_tickets) || 1);
+        }
+      });
+      setBookingsMap(counts);
     }
     setLoading(false);
   }
@@ -112,7 +129,12 @@ export default function PublishedEventsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => (
+            {events.map((event) => {
+              const bookedCount = bookingsMap[event.id] || 0;
+              const lifecycle = getEventLifecycle(event, bookedCount);
+              const totalCap = Number(event.total_tickets) || 0;
+
+              return (
               <div key={event.id} className="overflow-hidden rounded-2xl bg-white border border-neutral-200 shadow-sm dark:bg-neutral-900 dark:border-neutral-800 flex flex-col">
                 <div className="aspect-video w-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center relative overflow-hidden">
                   {event.image_url ? (
@@ -120,8 +142,14 @@ export default function PublishedEventsPage() {
                   ) : (
                     <span className="text-neutral-400 text-sm font-medium">No Image</span>
                   )}
-                  <div className="absolute top-4 left-4 rounded bg-green-500/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm backdrop-blur-sm">
-                    LIVE
+                  <div className={`absolute top-4 left-4 rounded ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-sm flex items-center gap-1.5`}>
+                    {(lifecycle.status === 'today' || lifecycle.status === 'upcoming') && (
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                      </span>
+                    )}
+                    {lifecycle.label}
                   </div>
                 </div>
                 
@@ -136,9 +164,24 @@ export default function PublishedEventsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-neutral-500 dark:text-neutral-400 mb-4 line-clamp-2">
+                  <div className="text-sm text-neutral-500 dark:text-neutral-400 mb-3 line-clamp-2">
                     {event.description || "No description provided."}
                   </div>
+
+                  {/* Capacity & Sales counter */}
+                  {totalCap > 0 ? (
+                    <div className="mb-4 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 p-2.5 border border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
+                      <span className="text-neutral-500 dark:text-neutral-400 font-medium">Ticket Sales</span>
+                      <span className={`font-bold ${bookedCount >= totalCap ? "text-amber-600 dark:text-amber-400" : "text-neutral-900 dark:text-white"}`}>
+                        {bookedCount} / {totalCap} sold {bookedCount >= totalCap ? "(Sold Out)" : `(${totalCap - bookedCount} left)`}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mb-4 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 p-2.5 border border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
+                      <span className="text-neutral-500 dark:text-neutral-400 font-medium">Ticket Sales</span>
+                      <span className="font-bold text-neutral-900 dark:text-white">{bookedCount} tickets booked</span>
+                    </div>
+                  )}
                   
                   <div className="mt-auto pt-4 border-t border-neutral-100 dark:border-neutral-800 flex flex-col gap-2">
                     <button 
@@ -170,7 +213,8 @@ export default function PublishedEventsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

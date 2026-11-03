@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import EventDetailsModal from "@/components/EventDetailsModal";
+import { getEventLifecycle } from "@/utils/eventLifecycle";
 
 const CITIES = ["All", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
 const CATEGORIES = ["All", "Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
@@ -20,6 +21,7 @@ function toTitleCase(str?: string): string {
 export default function EventsSection() {
   const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
+  const [bookingsMap, setBookingsMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const [city, setCity] = useState("All");
@@ -28,18 +30,34 @@ export default function EventsSection() {
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
-  // Fetch real events from Supabase
+  // Fetch real events and active booking counts from Supabase
   useEffect(() => {
     async function fetchEvents() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from('events')
-        .select('*, ticket_types(*)')
-        .eq('status', 'published')
-        .order('created_at', { ascending: false });
+      const [eventsRes, bookingsRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select('*, ticket_types(*)')
+          .eq('status', 'published')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('bookings')
+          .select('event_id, number_of_tickets, status')
+          .in('status', ['verified', 'confirmed', 'pending'])
+      ]);
 
-      if (data) {
-        setEvents(data);
+      if (eventsRes.data) {
+        setEvents(eventsRes.data);
+      }
+
+      if (bookingsRes.data) {
+        const counts: Record<string, number> = {};
+        bookingsRes.data.forEach((b: any) => {
+          if (b.event_id) {
+            counts[b.event_id] = (counts[b.event_id] || 0) + (Number(b.number_of_tickets) || 1);
+          }
+        });
+        setBookingsMap(counts);
       }
       setLoading(false);
     }
@@ -164,70 +182,80 @@ export default function EventsSection() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
           {filteredEvents.length > 0 ? (
-            filteredEvents.map((event) => (
-              <div 
-                key={event.id} 
-                onClick={() => setSelectedEvent(event)}
-                className="group relative overflow-hidden rounded-2xl bg-white border border-neutral-200/90 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#7a1fd1]/10 cursor-pointer flex flex-col"
-              >
-                {/* 16:10 Aspect Ratio Image Area on Top */}
-                <div className="aspect-[16/10] w-full bg-neutral-100 flex items-center justify-center relative overflow-hidden">
-                  {event.image_url ? (
-                    <img 
-                      src={event.image_url} 
-                      alt={event.title || "Event photo"} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                    />
-                  ) : (
-                    <span className="text-neutral-400 text-sm font-medium">No Image</span>
-                  )}
+            filteredEvents.map((event) => {
+              const bookedCount = bookingsMap[event.id] || 0;
+              const lifecycle = getEventLifecycle(event, bookedCount);
 
-                  {/* LIVE Badge on Published Events */}
-                  {event.status === "published" && (
-                    <div className="absolute top-3.5 left-3.5 z-10 rounded-full bg-[#7a1fd1] px-2.5 py-0.5 text-[11px] font-bold text-white shadow-xs">
-                      LIVE
+              return (
+                <div 
+                  key={event.id} 
+                  onClick={() => setSelectedEvent({ ...event, bookedCount, lifecycle })}
+                  className="group relative overflow-hidden rounded-2xl bg-white border border-neutral-200/90 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#7a1fd1]/10 cursor-pointer flex flex-col"
+                >
+                  {/* 16:10 Aspect Ratio Image Area on Top */}
+                  <div className="aspect-[16/10] w-full bg-neutral-100 flex items-center justify-center relative overflow-hidden">
+                    {event.image_url ? (
+                      <img 
+                        src={event.image_url} 
+                        alt={event.title || "Event photo"} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                      />
+                    ) : (
+                      <span className="text-neutral-400 text-sm font-medium">No Image</span>
+                    )}
+
+                    {/* Dynamic Lifecycle Badge */}
+                    <div className={`absolute top-3.5 left-3.5 z-10 rounded-full ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2.5 py-0.5 text-[11px] font-bold shadow-xs tracking-wider uppercase`}>
+                      {lifecycle.label}
                     </div>
-                  )}
-                </div>
-                
-                {/* Card Content */}
-                <div className="p-4 sm:p-6 flex flex-col flex-1">
-                  {/* Date in purple on left, Category on right */}
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs sm:text-sm font-bold text-[#6a17b8] flex items-center gap-1.5">
-                      {event.event_number && (
-                        <span className="text-xs px-2 py-0.5 rounded-md bg-[#f6effd] text-[#6a17b8] font-bold border border-[#ebdcfb]">
-                          #{event.event_number}
-                        </span>
-                      )}
-                      <span>{event.start_date || "TBD"}</span>
-                    </span>
-                    <span className="text-xs font-medium text-neutral-500">
-                      {event.category || "General"}
-                    </span>
+
+                    {/* Low Inventory Alert Pill */}
+                    {lifecycle.canBook && lifecycle.remainingTickets !== null && lifecycle.remainingTickets > 0 && lifecycle.remainingTickets <= 15 && (
+                      <div className="absolute top-3.5 right-3.5 z-10 rounded-full bg-black/65 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-300/30 shadow-xs">
+                        Only {lifecycle.remainingTickets} left!
+                      </div>
+                    )}
                   </div>
                   
-                  {/* Title in normal title case */}
-                  <h3 className="text-base sm:text-xl font-bold text-[#1c1230] mb-3 sm:mb-4 line-clamp-2 font-heading">
-                    {toTitleCase(event.title || "Untitled Event")}
-                  </h3>
-                  
-                  {/* Bottom row: City with pin on left, price on right */}
-                  <div className="mt-auto flex items-center justify-between pt-3 border-t border-neutral-100">
-                    <div className="flex items-center text-xs sm:text-sm text-neutral-500 font-medium">
-                      <svg className="mr-1.5 h-4 w-4 text-[#6a17b8] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <span>{event.city || "Various"}</span>
+                  {/* Card Content */}
+                  <div className="p-4 sm:p-6 flex flex-col flex-1">
+                    {/* Date in purple on left, Category on right */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs sm:text-sm font-bold text-[#6a17b8] flex items-center gap-1.5">
+                        {event.event_number && (
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-[#f6effd] text-[#6a17b8] font-bold border border-[#ebdcfb]">
+                            #{event.event_number}
+                          </span>
+                        )}
+                        <span>{event.start_date || "TBD"}</span>
+                      </span>
+                      <span className="text-xs font-medium text-neutral-500">
+                        {event.category || "General"}
+                      </span>
                     </div>
-                    <div className="text-sm font-bold text-[#1c1230]">
-                      {displayPrice(event)}
+                    
+                    {/* Title in normal title case */}
+                    <h3 className="text-base sm:text-xl font-bold text-[#1c1230] mb-3 sm:mb-4 line-clamp-2 font-heading">
+                      {toTitleCase(event.title || "Untitled Event")}
+                    </h3>
+                    
+                    {/* Bottom row: City with pin on left, price on right */}
+                    <div className="mt-auto flex items-center justify-between pt-3 border-t border-neutral-100">
+                      <div className="flex items-center text-xs sm:text-sm text-neutral-500 font-medium">
+                        <svg className="mr-1.5 h-4 w-4 text-[#6a17b8] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>{event.city || "Various"}</span>
+                      </div>
+                      <div className="text-sm font-bold text-[#1c1230]">
+                        {displayPrice(event)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="col-span-full py-12 text-center text-neutral-500">
               No events found matching your filters.
@@ -241,6 +269,7 @@ export default function EventsSection() {
         event={selectedEvent}
         onClose={() => setSelectedEvent(null)}
         onBook={handleBookTicketClick}
+        bookedCount={selectedEvent?.bookedCount ?? (bookingsMap[selectedEvent?.id] || 0)}
       />
     </section>
   );
