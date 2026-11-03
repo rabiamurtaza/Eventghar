@@ -83,8 +83,7 @@ export default function Navbar() {
   };
 
   const handleLoggedOutRequestEvent = () => {
-    const msg = encodeURIComponent("Please log in or create an account first to request an event.");
-    router.push(`/login?redirect=${encodeURIComponent('/book-event')}&message=${msg}`);
+    router.push(`/login?redirect=${encodeURIComponent('/book-event')}`);
   };
 
   // Determine whether navbar is transparent glass over hero or solid white

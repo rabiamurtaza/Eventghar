@@ -101,8 +101,7 @@ export default function EventsSection() {
     const targetBookUrl = `/book/${event.event_number || event.id}`;
     
     if (!session) {
-      const msg = encodeURIComponent("Please create an account or log in first to book your tickets.");
-      router.push(`/login?redirect=${encodeURIComponent(targetBookUrl)}&message=${msg}`);
+      router.push(`/login?redirect=${encodeURIComponent(targetBookUrl)}`);
     } else {
       router.push(targetBookUrl);
     }

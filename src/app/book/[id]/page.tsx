@@ -69,8 +69,7 @@ export default function BookTicketPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        const msg = encodeURIComponent("Please create an account or log in first to book your tickets.");
-        router.push(`/login?redirect=${encodeURIComponent(`/book/${id}`)}&message=${msg}`);
+        router.push(`/login?redirect=${encodeURIComponent(`/book/${id}`)}`);
         return;
       }
       setSession(session);
