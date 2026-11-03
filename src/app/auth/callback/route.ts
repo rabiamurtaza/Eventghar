@@ -21,12 +21,17 @@ export async function GET(request: Request) {
     const { data: authData, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error && authData?.user) {
       const user = authData.user
+      let isAdminUser = false;
       try {
         // Check if user is already an admin or organizer
         const [adminRes, orgRes] = await Promise.all([
           supabase.from('admins').select('id').eq('id', user.id).maybeSingle(),
           supabase.from('organizers').select('id').eq('id', user.id).maybeSingle(),
         ])
+
+        if (adminRes.data) {
+          isAdminUser = true;
+        }
 
         // Extract the best name provided by Google OAuth
         const rawName = (
@@ -75,7 +80,13 @@ export async function GET(request: Request) {
         console.error('Error syncing user profile on login:', err)
       }
 
-      return NextResponse.redirect(`${origin}${next}`)
+      let destination = next
+      // If user is an admin and the destination is the default (/my-account or /), route directly to /admin
+      if (isAdminUser && (destination === '/my-account' || destination === '/')) {
+        destination = '/admin'
+      }
+
+      return NextResponse.redirect(`${origin}${destination}`)
     }
   }
 

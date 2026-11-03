@@ -75,7 +75,14 @@ export async function proxy(request: NextRequest) {
 
   // Organizer routes protection: only organizers and admins allowed
   if (isOrganizer) {
-    if (role !== 'organizer' && role !== 'admin') {
+    if (role === 'admin') {
+      // If admin accesses organizer bookings, seamlessly redirect to comprehensive admin bookings dashboard
+      if (path.startsWith('/organizer/bookings')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin/bookings'
+        return NextResponse.redirect(url)
+      }
+    } else if (role !== 'organizer') {
       const url = request.nextUrl.clone()
       url.pathname = '/'
       return NextResponse.redirect(url)

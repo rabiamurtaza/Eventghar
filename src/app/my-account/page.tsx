@@ -45,13 +45,12 @@ export default function MyAccountPage() {
         .from("admins")
         .select("*")
         .eq("id", session.user.id)
-        .single();
+        .maybeSingle();
         
       if (adminData) {
         setRole("admin");
-        setFullName(adminData.full_name || session.user.user_metadata?.full_name || "");
-        setLoading(false);
-        return; // Admins don't need bookings
+        router.replace("/admin");
+        return;
       }
 
       // 2. Check if Organizer
@@ -59,7 +58,7 @@ export default function MyAccountPage() {
         .from("organizers")
         .select("*")
         .eq("id", session.user.id)
-        .single();
+        .maybeSingle();
 
       if (organizerData) {
         setRole("organizer");
@@ -84,7 +83,7 @@ export default function MyAccountPage() {
           .from("users")
           .select("*")
           .eq("id", session.user.id)
-          .single();
+          .maybeSingle();
           
         setRole("user");
         const resolvedName = userData?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || "";
