@@ -54,7 +54,6 @@ export default function BookTicketPage() {
   const [ticketType, setTicketType] = useState("");
   const [numberOfTickets, setNumberOfTickets] = useState(1);
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
-  const [studentIdCard, setStudentIdCard] = useState<File | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -258,21 +257,6 @@ export default function BookTicketPage() {
       return;
     }
 
-    if ((event?.is_student_only === true || event?.is_student_only === "true") && !studentIdCard) {
-      setErrorMsg("Student ID card is required for this student-only event.");
-      setSubmitting(false);
-      return;
-    }
-
-    if (studentIdCard) {
-      const studentErr = validateImageFile(studentIdCard, "Student ID Card");
-      if (studentErr) {
-        setErrorMsg(studentErr);
-        setSubmitting(false);
-        return;
-      }
-    }
-
     const supabase = createClient();
 
     let paymentScreenshotUrl = "";
@@ -286,16 +270,6 @@ export default function BookTicketPage() {
       if (pError) throw pError;
       const { data: pData } = supabase.storage.from('payment-screenshots').getPublicUrl(pName);
       paymentScreenshotUrl = pData.publicUrl;
-
-      // Upload Student ID
-      if (studentIdCard) {
-        const sExt = studentIdCard.name.split('.').pop();
-        const sName = `studentid-${Date.now()}-${Math.random().toString(36).substring(2)}.${sExt}`;
-        const { error: sError } = await supabase.storage.from('student-ids').upload(sName, studentIdCard);
-        if (sError) throw sError;
-        const { data: sData } = supabase.storage.from('student-ids').getPublicUrl(sName);
-        studentIdUrl = sData.publicUrl;
-      }
 
       const payload = {
         event_id: event.id,
@@ -618,36 +592,6 @@ export default function BookTicketPage() {
                   setPaymentScreenshot(file);
                 }} 
                 className="w-full text-sm text-neutral-900 dark:text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 dark:file:bg-green-900/30 dark:file:text-green-400" 
-              />
-            </div>
-
-            <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
-              <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                Student ID Card Picture {event.is_student_only === true || event.is_student_only === "true" ? <span className="text-red-500">*</span> : <span className="text-neutral-400 font-normal">(Optional)</span>}
-                <span className="text-xs font-normal text-neutral-400 block sm:inline sm:ml-2">(.png, .jpg, .jpeg under 5MB)</span>
-              </label>
-              <p className="text-xs text-neutral-500 mb-3">
-                {event.is_student_only === true || event.is_student_only === "true" ? "This is a student-only event. You must upload your student ID." : "Upload your student ID if applicable."}
-              </p>
-              <input 
-                type="file" 
-                required={event.is_student_only === true || event.is_student_only === "true"} 
-                accept="image/png, image/jpeg, image/jpg, image/webp" 
-                onChange={e => {
-                  const file = e.target.files?.[0] || null;
-                  if (file) {
-                    const err = validateImageFile(file, "Student ID Card");
-                    if (err) {
-                      setErrorMsg(err);
-                      e.target.value = "";
-                      setStudentIdCard(null);
-                      return;
-                    }
-                    setErrorMsg("");
-                  }
-                  setStudentIdCard(file);
-                }} 
-                className="w-full text-sm text-neutral-900 dark:text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-400" 
               />
             </div>
 
