@@ -472,7 +472,6 @@ export default function BookTicketPage() {
               {event.end_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">End Time</span>{event.end_time}</div>}
               {event.sales_deadline && <div><span className="font-semibold text-neutral-900 dark:text-white block">Sales Deadline</span>{event.sales_deadline}</div>}
               {event.organizer_name && <div><span className="font-semibold text-neutral-900 dark:text-white block">Organizer</span>{event.organizer_name}</div>}
-              {event.organizer_contact && <div><span className="font-semibold text-neutral-900 dark:text-white block">Contact</span>{event.organizer_contact}</div>}
             </div>
             <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{event.description}</p>
           </div>
@@ -626,9 +625,8 @@ export default function BookTicketPage() {
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
               <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                Upload Payment Screenshot * <span className="text-xs font-normal text-neutral-400">(.png, .jpg, .jpeg under 5MB)</span>
+                Upload Payment Screenshot *
               </label>
-              <p className="text-xs text-neutral-500 mb-3">Please pay Rs. {totalPrice.toLocaleString()} to one of the accounts listed on the left and upload the proof here.</p>
               <input 
                 type="file" 
                 required 
