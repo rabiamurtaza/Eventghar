@@ -8,12 +8,33 @@ const SLIDE_INTERVAL_MS = 7000;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+function extractStoragePathFromUrl(url: string, bucketName: string): string {
+  try {
+    const parsed = new URL(url);
+    const marker = `/${bucketName}/`;
+    const idx = parsed.pathname.indexOf(marker);
+    if (idx !== -1) {
+      return decodeURIComponent(parsed.pathname.substring(idx + marker.length));
+    }
+    return parsed.pathname.split("/").pop() || "";
+  } catch {
+    const parts = url.split(`/${bucketName}/`);
+    if (parts.length > 1) {
+      return parts[1].split("?")[0];
+    }
+    return url.split("/").pop()?.split("?")[0] || "";
+  }
+}
+
 export default function HeroSlider() {
   const [images, setImages] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -229,6 +250,74 @@ export default function HeroSlider() {
     }
   };
 
+  // 8. Admin Delete Current Hero Image
+  const handleConfirmDelete = async () => {
+    if (images.length === 0 || deleting) return;
+
+    const currentImageUrl = images[currentIndex];
+    if (!currentImageUrl) return;
+
+    setDeleting(true);
+    setUploadError(null);
+    setDeleteMessage(null);
+
+    try {
+      // Double check admin role
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("You must be logged in as an administrator to delete hero images.");
+      }
+      const { data: admin } = await supabase
+        .from("admins")
+        .select("id")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      if (!admin) {
+        throw new Error("Unauthorized: Only administrators can delete hero images.");
+      }
+
+      // 1. Delete file from storage bucket so no orphaned files remain
+      const storagePath = extractStoragePathFromUrl(currentImageUrl, "hero-images");
+      if (storagePath) {
+        const { error: storageErr } = await supabase.storage
+          .from("hero-images")
+          .remove([storagePath]);
+
+        if (storageErr) {
+          console.warn("Storage removal note:", storageErr);
+        }
+      }
+
+      // 2. Delete record from database
+      const { error: dbErr } = await supabase
+        .from("hero_images")
+        .delete()
+        .eq("image_url", currentImageUrl);
+
+      if (dbErr) throw dbErr;
+
+      // 3. Smoothly update local images list and index without page refresh or flicker
+      setImages((prev) => {
+        const nextList = prev.filter((_, i) => i !== currentIndex);
+        const nextIdx = nextList.length === 0 ? 0 : currentIndex >= nextList.length ? nextList.length - 1 : currentIndex;
+        setCurrentIndex(nextIdx);
+        return nextList;
+      });
+
+      setShowDeleteConfirm(false);
+      setDeleteMessage("Image deleted");
+      setTimeout(() => setDeleteMessage(null), 3000);
+    } catch (err: unknown) {
+      console.error("Hero image delete failed:", err);
+      const msg = err instanceof Error ? err.message : "Failed to delete hero image.";
+      setUploadError(msg);
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="w-full">
       {/* Hero Section Container (Full bleed edge-to-edge, no border, no rounded corners) */}
@@ -261,10 +350,10 @@ export default function HeroSlider() {
         {/* Foreground Hero Text Content (Centered) */}
         <div className="relative z-20 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-none pt-10 sm:pt-14 flex flex-col items-center justify-center">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white drop-shadow-md font-heading leading-tight max-w-3xl">
-            Discover and Experience, Create Events
+            Discover and Experience, Great Events
           </h1>
           <p className="mt-3 sm:mt-4 text-sm sm:text-lg lg:text-xl text-neutral-200 font-normal drop-shadow leading-relaxed font-body max-w-2xl mx-auto">
-            Find the latest concerts, sports, fun parties, and meetups happening near you.
+            Find the latest concerts, sports, fun parties, and trips happening near you.
           </p>
         </div>
 
@@ -285,7 +374,7 @@ export default function HeroSlider() {
         )}
       </section>
 
-      {/* Admin "Add Image" Action (Visible STRICTLY to logged-in Admins) */}
+      {/* Admin Controls Bar (Visible STRICTLY to logged-in Admins) */}
       {isAdmin && (
         <div className="bg-neutral-900 border-b border-neutral-800 py-3 px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-neutral-300">
@@ -297,10 +386,15 @@ export default function HeroSlider() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {uploadError && (
               <span className="text-red-400 font-medium text-xs">
                 {uploadError}
+              </span>
+            )}
+            {deleteMessage && (
+              <span className="text-green-400 font-semibold text-xs">
+                {deleteMessage}
               </span>
             )}
 
@@ -312,9 +406,23 @@ export default function HeroSlider() {
               className="hidden"
             />
 
+            {/* Delete Image Button - only shown if there are images to delete */}
+            {images.length > 0 && (
+              <button
+                type="button"
+                disabled={deleting || uploading}
+                onClick={() => setShowDeleteConfirm(true)}
+                className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold px-3 py-1.5 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Delete the currently displayed hero image"
+              >
+                <span>🗑️</span>
+                <span>Delete Image</span>
+              </button>
+            )}
+
             <button
               type="button"
-              disabled={uploading}
+              disabled={uploading || deleting}
               onClick={() => fileInputRef.current?.click()}
               className="rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold px-3.5 py-1.5 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
@@ -330,6 +438,46 @@ export default function HeroSlider() {
                 </>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog for Deleting Hero Image */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-center">
+            <div className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 mx-auto flex items-center justify-center text-lg mb-3">
+              🗑️
+            </div>
+            <h4 className="text-base font-bold text-white mb-1">Delete Hero Image?</h4>
+            <p className="text-xs text-neutral-300 mb-5 leading-relaxed">
+              Delete this hero image? This cannot be undone.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold py-2.5 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold py-2.5 transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {deleting ? (
+                  <>
+                    <span className="animate-spin text-xs">⏳</span>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  "Delete"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
