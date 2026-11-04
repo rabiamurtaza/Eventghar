@@ -30,10 +30,11 @@ export default function EventsSection() {
   
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
+  const supabase = useMemo(() => createClient(), []);
+
   // Fetch real events and active booking counts from Supabase
-  useEffect(() => {
-    async function fetchEvents() {
-      const supabase = createClient();
+  const fetchEvents = useMemo(() => {
+    return async () => {
       const [eventsRes, bookingsRes] = await Promise.all([
         supabase
           .from('events')
@@ -60,9 +61,35 @@ export default function EventsSection() {
         setBookingsMap(counts);
       }
       setLoading(false);
-    }
+    };
+  }, [supabase]);
+
+  useEffect(() => {
     fetchEvents();
-  }, []);
+
+    // Realtime subscription for live event updates and ticket counts
+    const channel = supabase
+      .channel("events-homepage-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => {
+          fetchEvents();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => {
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchEvents, supabase]);
 
   // Filter logic
   const displayPrice = (item: any) => {

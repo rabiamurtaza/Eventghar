@@ -83,8 +83,31 @@ export default function AdminBookingsPage() {
     }
 
     loadInitialData();
+
+    const supabase = createClient();
+    // Realtime subscription for live bookings, ticket scans, and event changes
+    const channel = supabase
+      .channel("admin-bookings-attendance-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => loadInitialData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "issued_tickets" },
+        () => loadInitialData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => loadInitialData()
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
+      supabase.removeChannel(channel);
     };
   }, []);
 

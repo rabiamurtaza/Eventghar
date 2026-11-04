@@ -84,6 +84,30 @@ export default function AdminOrganizersAndUsersPage() {
 
   useEffect(() => {
     fetchData();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-organizers-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "organizers" },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "users" },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Promote a User to Organizer

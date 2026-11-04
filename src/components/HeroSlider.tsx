@@ -32,6 +32,7 @@ export default function HeroSlider() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [loadingImages, setLoadingImages] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function HeroSlider() {
 
   const supabase = useMemo(() => createClient(), []);
 
-  // 1. Fetch images from Supabase table hero_images
+  // 1. Fetch images from Supabase table hero_images with preloading
   const fetchHeroImages = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -56,14 +57,29 @@ export default function HeroSlider() {
         .order("created_at", { ascending: true });
 
       if (data && data.length > 0) {
-        setImages(data.map((item) => item.image_url));
+        const urls = data.map((item) => item.image_url);
+        // Preload first image for smooth instantaneous display
+        const img = new Image();
+        img.src = urls[0];
+        img.onload = () => {
+          setImages(urls);
+          setLoadingImages(false);
+        };
+        img.onerror = () => {
+          setImages(urls);
+          setLoadingImages(false);
+        };
+      } else {
+        setImages([]);
+        setLoadingImages(false);
       }
     } catch (err) {
       console.warn("Could not load hero images:", err);
+      setLoadingImages(false);
     }
   }, [supabase]);
 
-  // 2. Check Admin role (matching Navbar logic)
+  // 2. Check Admin role & subscribe to Realtime updates
   useEffect(() => {
     let isSubscribed = true;
 
@@ -99,9 +115,22 @@ export default function HeroSlider() {
       }
     });
 
+    // Realtime channel: instantly update hero images when uploaded or deleted
+    const channel = supabase
+      .channel("hero-images-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hero_images" },
+        () => {
+          fetchHeroImages();
+        }
+      )
+      .subscribe();
+
     return () => {
       isSubscribed = false;
       subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [supabase, fetchHeroImages]);
 
@@ -332,6 +361,16 @@ export default function HeroSlider() {
       >
         {/* Fallback Background (when no images exist yet) */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-neutral-900 to-black z-0" />
+
+        {/* Loading Indicator for Hero Images */}
+        {loadingImages && (
+          <div className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 pointer-events-none">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-2" />
+            <span className="text-[11px] font-semibold text-neutral-300 tracking-wider uppercase">
+              Loading Highlights...
+            </span>
+          </div>
+        )}
 
         {/* Sliding Background Images with smooth crossfade */}
         {images.map((imgUrl, idx) => (

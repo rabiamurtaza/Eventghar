@@ -87,12 +87,39 @@ export default function AdminDashboardPage() {
     
     fetchDashboardStats();
 
+    const supabase = createClient();
+    // Supabase Realtime for live admin dashboard statistics
+    const channel = supabase
+      .channel("admin-dashboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => fetchDashboardStats()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => fetchDashboardStats()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "organizers" },
+        () => fetchDashboardStats()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "book_event_requests" },
+        () => fetchDashboardStats()
+      )
+      .subscribe();
+
     const handleUpdate = () => {
       fetchDashboardStats();
     };
 
     window.addEventListener("event-requests-updated", handleUpdate);
     return () => {
+      supabase.removeChannel(channel);
       window.removeEventListener("event-requests-updated", handleUpdate);
     };
   }, []);

@@ -47,6 +47,25 @@ export default function PublishedEventsPage() {
 
   useEffect(() => {
     fetchEvents();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-published-events-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => fetchEvents()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => fetchEvents()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleUnpublish = async (id: string | number) => {

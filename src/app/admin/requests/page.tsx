@@ -73,11 +73,29 @@ export default function AdminEventRequestsPage() {
   useEffect(() => {
     fetchRequests();
 
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-requests-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "book_event_requests" },
+        () => fetchRequests()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "organizers" },
+        () => fetchRequests()
+      )
+      .subscribe();
+
     const handleUpdate = () => {
       setReviewedIds(getReviewedRequestIds());
     };
     window.addEventListener("event-requests-updated", handleUpdate);
-    return () => window.removeEventListener("event-requests-updated", handleUpdate);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("event-requests-updated", handleUpdate);
+    };
   }, []);
 
   const isReviewed = (req: any) => {

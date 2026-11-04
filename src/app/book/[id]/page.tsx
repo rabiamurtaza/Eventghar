@@ -121,6 +121,8 @@ export default function BookTicketPage() {
   const [paymentAccounts, setPaymentAccounts] = useState<any[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
+  const supabase = useMemo(() => createClient(), []);
+
   const handleCopyAccount = (textToCopy: string, index: number) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(textToCopy);
@@ -255,9 +257,44 @@ export default function BookTicketPage() {
     }
     if (id) init();
 
+    // Live inventory & event updates via Realtime
+    const channel = supabase
+      .channel(`book-event-${id}-realtime`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        async () => {
+          if (!event?.id) return;
+          const { data: bData } = await supabase
+            .from('bookings')
+            .select('ticket_type, number_of_tickets, status')
+            .eq('event_id', event.id)
+            .in('status', ['verified', 'confirmed', 'pending']);
+          if (bData) {
+            let total = 0;
+            const byTier: Record<string, number> = {};
+            bData.forEach((b: any) => {
+              const count = Number(b.number_of_tickets) || 1;
+              total += count;
+              const tType = b.ticket_type || 'Standard';
+              byTier[tType] = (byTier[tType] || 0) + count;
+            });
+            setTotalBooked(total);
+            setTierBookings(byTier);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => {
+          init();
+        }
+      )
+      .subscribe();
+
     // Re-sync profile details when user focuses tab (e.g. if updated in My Account)
     const handleProfileSync = async () => {
-      const supabase = createClient();
       const { data: { session: activeSession } } = await supabase.auth.getSession();
       if (!activeSession) return;
 
@@ -291,10 +328,11 @@ export default function BookTicketPage() {
     document.addEventListener("visibilitychange", handleProfileSync);
 
     return () => {
+      supabase.removeChannel(channel);
       window.removeEventListener("focus", handleProfileSync);
       document.removeEventListener("visibilitychange", handleProfileSync);
     };
-  }, [id, router]);
+  }, [id, router, supabase, event?.id]);
 
   // Compute event lifecycle & remaining inventory
   const lifecycle = getEventLifecycle(event, totalBooked);

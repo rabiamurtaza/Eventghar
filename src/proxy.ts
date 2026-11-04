@@ -51,17 +51,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // User is logged in. Fetch role safely using maybeSingle
+  // User is logged in. Fetch role safely using concurrent requests
   let role = 'user'
-  const { data: admin } = await supabase.from('admins').select('id').eq('id', user.id).maybeSingle()
+  const [adminRes, orgRes] = await Promise.all([
+    supabase.from('admins').select('id').eq('id', user.id).maybeSingle(),
+    supabase.from('organizers').select('id').eq('id', user.id).maybeSingle()
+  ])
 
-  if (admin) {
+  if (adminRes.data) {
     role = 'admin'
-  } else {
-    const { data: organizer } = await supabase.from('organizers').select('id').eq('id', user.id).maybeSingle()
-    if (organizer) {
-      role = 'organizer'
-    }
+  } else if (orgRes.data) {
+    role = 'organizer'
   }
 
   // Admin routes protection: only admins allowed

@@ -81,6 +81,26 @@ export default function OrganizerBookingsPage() {
     }
     
     fetchData();
+
+    const supabase = createClient();
+    // Realtime subscription for organizer's bookings & gate attendance
+    const channel = supabase
+      .channel("organizer-bookings-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => fetchData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "issued_tickets" },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function fetchIssuedTickets() {

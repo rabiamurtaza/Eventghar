@@ -28,6 +28,20 @@ export default function DraftsPage() {
 
   useEffect(() => {
     fetchDrafts();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin-drafts-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => fetchDrafts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handlePublish = async (id: string | number) => {

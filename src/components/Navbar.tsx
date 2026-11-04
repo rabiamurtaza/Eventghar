@@ -42,12 +42,12 @@ export default function Navbar() {
     const supabase = createClient();
     
     const checkUserRole = async (userId: string) => {
-      const { data: admin } = await supabase.from('admins').select('id').eq('id', userId).maybeSingle();
-      if (admin) return 'admin';
-      
-      const { data: organizer } = await supabase.from('organizers').select('id').eq('id', userId).maybeSingle();
-      if (organizer) return 'organizer';
-      
+      const [adminRes, orgRes] = await Promise.all([
+        supabase.from('admins').select('id').eq('id', userId).maybeSingle(),
+        supabase.from('organizers').select('id').eq('id', userId).maybeSingle()
+      ]);
+      if (adminRes.data) return 'admin';
+      if (orgRes.data) return 'organizer';
       return 'user';
     };
 
