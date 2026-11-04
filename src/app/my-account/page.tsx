@@ -218,7 +218,7 @@ export default function MyAccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 py-10">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 pt-20 sm:pt-28 pb-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-8">My Account</h1>
         
@@ -243,10 +243,10 @@ export default function MyAccountPage() {
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex border-b border-neutral-200 dark:border-neutral-800 mb-8">
+            <div className="flex overflow-x-auto no-scrollbar border-b border-neutral-200 dark:border-neutral-800 mb-8">
               <button
                 onClick={() => setActiveTab("profile")}
-                className={`pb-4 px-4 text-sm font-medium transition ${
+                className={`pb-4 px-4 text-sm font-medium transition shrink-0 whitespace-nowrap ${
                   activeTab === "profile" 
                     ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                     : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
@@ -257,7 +257,7 @@ export default function MyAccountPage() {
               {role === 'organizer' ? (
                 <button
                   onClick={() => setActiveTab("events")}
-                  className={`pb-4 px-4 text-sm font-medium transition ${
+                  className={`pb-4 px-4 text-sm font-medium transition shrink-0 whitespace-nowrap ${
                     activeTab === "events" 
                       ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                       : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
@@ -268,7 +268,7 @@ export default function MyAccountPage() {
               ) : (
                 <button
                   onClick={() => setActiveTab("tickets")}
-                  className={`pb-4 px-4 text-sm font-medium transition ${
+                  className={`pb-4 px-4 text-sm font-medium transition shrink-0 whitespace-nowrap ${
                     activeTab === "tickets" 
                       ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
                       : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"

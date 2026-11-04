@@ -105,7 +105,7 @@ export default function TicketPassCard({ booking, passes }: TicketPassCardProps)
 
       {/* Multiple Tickets Tab Switcher (if user booked > 1 ticket) */}
       {passes.length > 1 && (
-        <div className="p-3 bg-neutral-100 dark:bg-neutral-950/60 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-center gap-2">
+        <div className="p-3 bg-neutral-100 dark:bg-neutral-950/60 border-b border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-center gap-2">
           {passes.map((pass, index) => {
             const isSelected = index === activePassIndex;
             return (

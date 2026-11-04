@@ -35,6 +35,21 @@ function normalizePhoneNumber(phone: string): string {
   return cleaned;
 }
 
+function formatAccountDetails(raw: string) {
+  if (!raw) return { title: "", number: "" };
+  // Check if separated by " - ", ":", "/", or "|" followed by account/phone number
+  const sepMatch = raw.match(/^(.*?)(?:\s*[-–—:|/]\s*)(03\d{9}|\+?92\d{10}|\d{9,16})$/i);
+  if (sepMatch) {
+    return { title: sepMatch[1].trim(), number: sepMatch[2].trim() };
+  }
+  // Check if ends with a phone number / account number (e.g. "Abdul Wase 03001234567")
+  const endNumberMatch = raw.match(/^(.*?)[\s]+(03\d{9}|\+?92\d{10}|\d{9,16})$/);
+  if (endNumberMatch) {
+    return { title: endNumberMatch[1].trim(), number: endNumberMatch[2].trim() };
+  }
+  return { title: "", number: raw };
+}
+
 export default function BookTicketPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? "");
@@ -62,6 +77,15 @@ export default function BookTicketPage() {
 
   const [ticketOptions, setTicketOptions] = useState<any[]>([]);
   const [paymentAccounts, setPaymentAccounts] = useState<any[]>([]);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const handleCopyAccount = (textToCopy: string, index: number) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    }
+  };
 
   useEffect(() => {
     async function init() {
@@ -444,10 +468,10 @@ export default function BookTicketPage() {
         
         {/* Left Side: Event & Payment Info */}
         <div className="space-y-6">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             {event.image_url && <img src={event.image_url} alt="Event" className="w-full h-48 object-cover rounded-xl mb-4" />}
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">{event.title}</h2>
+            <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 mb-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">{event.title}</h2>
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className={`rounded-full ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider`}>
                   {lifecycle.label}
@@ -459,45 +483,82 @@ export default function BookTicketPage() {
                 )}
               </div>
             </div>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{event.start_date} | {event.venue_name}</p>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mb-4">{event.start_date} | {event.venue_name}</p>
             {event.is_student_only && (
               <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 mb-4">
                 Student Only Event {event.university_name && `- ${event.university_name}`}
               </span>
             )}
 
-            <div className="grid grid-cols-2 gap-4 mb-6 text-sm text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-              {event.doors_open_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">Doors Open</span>{event.doors_open_time}</div>}
-              {event.start_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">Start Time</span>{event.start_time}</div>}
-              {event.end_time && <div><span className="font-semibold text-neutral-900 dark:text-white block">End Time</span>{event.end_time}</div>}
-              {event.sales_deadline && <div><span className="font-semibold text-neutral-900 dark:text-white block">Sales Deadline</span>{event.sales_deadline}</div>}
-              {event.organizer_name && <div><span className="font-semibold text-neutral-900 dark:text-white block">Organizer</span>{event.organizer_name}</div>}
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950 p-3.5 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
+              {event.doors_open_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Doors Open</span><span className="text-neutral-900 dark:text-white font-medium">{event.doors_open_time}</span></div>}
+              {event.start_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Start Time</span><span className="text-neutral-900 dark:text-white font-medium">{event.start_time}</span></div>}
+              {event.end_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">End Time</span><span className="text-neutral-900 dark:text-white font-medium">{event.end_time}</span></div>}
+              {event.sales_deadline && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Sales Deadline</span><span className="text-neutral-900 dark:text-white font-medium">{event.sales_deadline}</span></div>}
+              {event.organizer_name && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Organizer</span><span className="text-neutral-900 dark:text-white font-medium">{event.organizer_name}</span></div>}
             </div>
-            <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{event.description}</p>
+            <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
           </div>
 
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">Payment Instructions</h3>
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
+            <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mb-3">Payment Instructions</h3>
             {event.payment_instructions && (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6 bg-neutral-50 dark:bg-neutral-950 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mb-4 bg-neutral-50 dark:bg-neutral-950 p-3 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 leading-relaxed whitespace-pre-wrap">
                 {event.payment_instructions}
               </p>
             )}
             <div className="space-y-3">
-              {paymentAccounts.length > 0 ? paymentAccounts.map((acc, i) => (
-                <div key={i} className="flex justify-between items-center p-3 bg-neutral-50 dark:bg-neutral-950 rounded-lg border border-neutral-200 dark:border-neutral-800">
-                  <span className="font-semibold uppercase text-sm text-neutral-700 dark:text-neutral-300">{acc.method}</span>
-                  <span className="font-medium text-neutral-900 dark:text-white">{acc.account_title_number}</span>
-                </div>
-              )) : (
-                <p className="text-sm text-neutral-500">No payment accounts provided by organizer.</p>
+              {paymentAccounts.length > 0 ? paymentAccounts.map((acc, i) => {
+                const details = formatAccountDetails(acc.account_title_number || "");
+                const textToCopy = details.number || acc.account_title_number || "";
+
+                return (
+                  <div key={i} className="p-3.5 bg-neutral-50 dark:bg-neutral-950/70 rounded-xl border border-neutral-200 dark:border-neutral-800 transition">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                        {acc.method}
+                      </span>
+                      {textToCopy && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyAccount(textToCopy, i)}
+                          className="text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 transition cursor-pointer"
+                          title="Copy account details"
+                        >
+                          {copiedIndex === i ? (
+                            <span className="text-green-600 dark:text-green-400 font-bold">✓ Copied</span>
+                          ) : (
+                            <span>📋 Copy</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+
+                    {details.title && details.number ? (
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        <div className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+                          Title: <span className="font-semibold text-neutral-900 dark:text-white">{details.title}</span>
+                        </div>
+                        <div className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white font-mono tracking-wide break-words select-all">
+                          {details.number}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs sm:text-sm font-semibold text-neutral-900 dark:text-white break-words select-all mt-1">
+                        {acc.account_title_number}
+                      </div>
+                    )}
+                  </div>
+                );
+              }) : (
+                <p className="text-xs sm:text-sm text-neutral-500">No payment accounts provided by organizer.</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Right Side: Booking Form */}
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800 shadow-sm h-fit">
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 md:p-8 border border-neutral-200 dark:border-neutral-800 shadow-sm h-fit">
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
             Book Tickets
           </h2>
@@ -559,7 +620,7 @@ export default function BookTicketPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Ticket Type *</label>
                 <select 

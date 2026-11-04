@@ -269,7 +269,7 @@ export default function OrganizerBookingsPage() {
   const totalUnscanned = issuedTickets.filter(t => t.status === 'valid').length;
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 px-4 pt-20 sm:pt-28 pb-12 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         
         {/* Header */}
@@ -297,10 +297,10 @@ export default function OrganizerBookingsPage() {
         </div>
 
         {/* View Switcher: Bookings vs Gate Attendance */}
-        <div className="mb-6 flex border-b border-neutral-200 dark:border-neutral-800">
+        <div className="mb-6 flex overflow-x-auto no-scrollbar border-b border-neutral-200 dark:border-neutral-800">
           <button
             onClick={() => setActiveMainTab("bookings")}
-            className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 whitespace-nowrap ${
               activeMainTab === "bookings"
                 ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
                 : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
@@ -317,7 +317,7 @@ export default function OrganizerBookingsPage() {
               setActiveMainTab("attendance");
               fetchIssuedTickets();
             }}
-            className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 whitespace-nowrap ${
               activeMainTab === "attendance"
                 ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
                 : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"

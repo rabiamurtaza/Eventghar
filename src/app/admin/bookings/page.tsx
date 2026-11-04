@@ -349,10 +349,10 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Main Mode Toggle: Bookings vs Gate Attendance */}
-      <div className="mb-8 flex border-b border-neutral-200 dark:border-neutral-800">
+      <div className="mb-8 flex overflow-x-auto no-scrollbar border-b border-neutral-200 dark:border-neutral-800">
         <button
           onClick={() => setActiveMainTab("bookings")}
-          className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+          className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 whitespace-nowrap ${
             activeMainTab === "bookings"
               ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
               : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
@@ -369,7 +369,7 @@ export default function AdminBookingsPage() {
             setActiveMainTab("attendance");
             fetchIssuedTickets();
           }}
-          className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 ${
+          className={`pb-3 px-5 text-sm font-bold border-b-2 transition flex items-center gap-2 shrink-0 whitespace-nowrap ${
             activeMainTab === "attendance"
               ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
               : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
