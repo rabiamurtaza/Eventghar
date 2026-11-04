@@ -820,7 +820,7 @@ export default function MyAccountPage() {
                     </button>
 
                     {/* Heading: Event Name & Ticket Count */}
-                    <div className="mb-8 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+                    <div className="mb-6 pb-4 border-b border-neutral-200 dark:border-neutral-800">
                       <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white break-words">
                         {selectedEventForTickets.eventTitle}
                       </h2>
@@ -828,6 +828,30 @@ export default function MyAccountPage() {
                         {selectedEventForTickets.totalTickets} {selectedEventForTickets.totalTickets === 1 ? "ticket" : "tickets"}
                       </p>
                     </div>
+
+                    {/* Pending Verification Notice (At Top) */}
+                    {selectedEventForTickets.pendingCount > 0 && (
+                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center shrink-0">
+                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 mb-2">
+                          Verification Pending
+                        </span>
+                        <p className="text-xs text-yellow-800 dark:text-yellow-300 leading-relaxed">
+                          {selectedEventForTickets.pendingCount} {selectedEventForTickets.pendingCount === 1 ? "ticket is" : "tickets are"} awaiting payment verification by the organizer. Once verified, QR entry passes will appear here automatically.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Rejected Notice (At Top) */}
+                    {selectedEventForTickets.rejectedCount > 0 && (
+                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center shrink-0">
+                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 mb-2">
+                          Booking Not Verified
+                        </span>
+                        <p className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
+                          {selectedEventForTickets.rejectedCount} ticket booking was rejected. Please contact event support.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Full Natural-Size Vertically Stacked Tickets (No fixed height container, with scroll-snap) */}
                     <div
@@ -854,30 +878,6 @@ export default function MyAccountPage() {
                           />
                         </div>
                       ))}
-
-                      {/* Pending Verification Notice */}
-                      {selectedEventForTickets.pendingCount > 0 && (
-                        <div className="w-full max-w-[340px] p-4 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center shrink-0">
-                          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 mb-2">
-                            Verification Pending
-                          </span>
-                          <p className="text-xs text-yellow-800 dark:text-yellow-300">
-                            {selectedEventForTickets.pendingCount} {selectedEventForTickets.pendingCount === 1 ? "ticket is" : "tickets are"} awaiting payment verification by the organizer. Once verified, QR entry passes will appear here automatically.
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Rejected Notice */}
-                      {selectedEventForTickets.rejectedCount > 0 && (
-                        <div className="w-full max-w-[340px] p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center shrink-0">
-                          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 mb-2">
-                            Booking Not Verified
-                          </span>
-                          <p className="text-xs text-red-800 dark:text-red-300">
-                            {selectedEventForTickets.rejectedCount} ticket booking was rejected. Please contact event support.
-                          </p>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ) : (
