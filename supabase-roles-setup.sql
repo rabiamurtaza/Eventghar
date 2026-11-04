@@ -18,21 +18,40 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS user_number serial;
 -- 3. Ensure events table has organizer_id
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS organizer_id uuid;
 
--- 4. Enable Row Level Security
+-- 4. Enable Row Level Security & Admin Verification Helper
 ALTER TABLE public.organizers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admins ENABLE ROW LEVEL SECURITY;
+
+-- Helper function to verify admin role with SECURITY DEFINER to bypass RLS recursion
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.admins WHERE id = auth.uid()
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, anon;
+
+-- Admin can read their own admin record
+DROP POLICY IF EXISTS "Admins can view admins" ON public.admins;
+CREATE POLICY "Admins can view admins" ON public.admins
+FOR SELECT
+TO authenticated
+USING (auth.uid() = id);
 
 -- 5. RLS Policies for Organizers table
 DROP POLICY IF EXISTS "Admins can manage organizers" ON public.organizers;
 CREATE POLICY "Admins can manage organizers" ON public.organizers
 FOR ALL
 TO authenticated
-USING (
-  EXISTS (SELECT 1 FROM public.admins WHERE public.admins.id = auth.uid())
-)
-WITH CHECK (
-  EXISTS (SELECT 1 FROM public.admins WHERE public.admins.id = auth.uid())
-);
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Organizers can read self" ON public.organizers;
 CREATE POLICY "Organizers can read self" ON public.organizers
@@ -51,12 +70,8 @@ DROP POLICY IF EXISTS "Admins can manage users" ON public.users;
 CREATE POLICY "Admins can manage users" ON public.users
 FOR ALL
 TO authenticated
-USING (
-  EXISTS (SELECT 1 FROM public.admins WHERE public.admins.id = auth.uid())
-)
-WITH CHECK (
-  EXISTS (SELECT 1 FROM public.admins WHERE public.admins.id = auth.uid())
-);
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Users can read self" ON public.users;
 CREATE POLICY "Users can read self" ON public.users
@@ -87,12 +102,18 @@ CREATE OR REPLACE FUNCTION public.promote_user_to_organizer(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_name text;
   v_email text;
   v_phone text;
 BEGIN
+  -- Verify the caller is an administrator
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: Only admins can promote users to organizers';
+  END IF;
+
   -- Retrieve user info if not passed directly
   SELECT full_name, email, phone_number INTO v_name, v_email, v_phone
   FROM public.users
@@ -124,16 +145,27 @@ CREATE OR REPLACE FUNCTION public.demote_organizer_to_user(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_name text;
   v_email text;
   v_phone text;
 BEGIN
+  -- Verify the caller is an administrator
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Unauthorized: Only admins can demote organizers to users';
+  END IF;
+
   -- Retrieve organizer info
   SELECT full_name, email, phone_number INTO v_name, v_email, v_phone
   FROM public.organizers
   WHERE id = target_user_id;
+
+  -- Disassociate any events linked to this organizer so foreign keys do not block deletion
+  UPDATE public.events 
+  SET organizer_id = NULL 
+  WHERE organizer_id = target_user_id;
 
   -- Insert into users
   INSERT INTO public.users (id, full_name, email, phone_number)

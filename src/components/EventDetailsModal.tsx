@@ -324,19 +324,6 @@ export default function EventDetailsModal({
               </div>
             )}
 
-            {/* Remaining tickets alert if actively bookable */}
-            {lifecycle.canBook && lifecycle.remainingTickets !== null && (
-              <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <span>🎫</span>
-                  <span>Tickets Remaining</span>
-                </span>
-                <span className="font-bold">
-                  {lifecycle.remainingTickets} left {lifecycle.totalTickets ? `of ${lifecycle.totalTickets}` : ''}
-                </span>
-              </div>
-            )}
-
             {/* Student Only Note if enabled */}
             {event.is_student_only && (
               <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 p-2.5 text-xs text-blue-800 dark:text-blue-300 font-medium">

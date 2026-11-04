@@ -207,13 +207,6 @@ export default function EventsSection() {
                     <div className={`absolute top-3.5 left-3.5 z-10 rounded-full ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2.5 py-0.5 text-[11px] font-bold shadow-xs tracking-wider uppercase`}>
                       {lifecycle.label}
                     </div>
-
-                    {/* Low Inventory Alert Pill */}
-                    {lifecycle.canBook && lifecycle.remainingTickets !== null && lifecycle.remainingTickets > 0 && lifecycle.remainingTickets <= 15 && (
-                      <div className="absolute top-3.5 right-3.5 z-10 rounded-full bg-black/65 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-300/30 shadow-xs">
-                        Only {lifecycle.remainingTickets} left!
-                      </div>
-                    )}
                   </div>
                   
                   {/* Card Content */}

@@ -102,6 +102,7 @@ export default function AdminOrganizersAndUsersPage() {
       });
 
       if (rpcError) {
+        console.warn("RPC promote_user_to_organizer failed or not found, attempting direct table fallback:", rpcError);
         // Fallback: direct insert to organizers and delete from users
         const { error: insErr } = await supabase.from("organizers").upsert({
           id: userId,
@@ -110,8 +111,24 @@ export default function AdminOrganizersAndUsersPage() {
           phone_number: phone || null,
         });
 
-        if (insErr) throw insErr;
-        await supabase.from("users").delete().eq("id", userId);
+        if (insErr) {
+          if (insErr.message?.includes("row-level security") || rpcError.code === "PGRST202") {
+            throw new Error(
+              `Database setup required: Stored procedure 'promote_user_to_organizer' or admin RLS policy is not configured in Supabase. Please run 'supabase-roles-setup.sql' in the Supabase SQL Editor. (${insErr.message})`
+            );
+          }
+          throw insErr;
+        }
+
+        const { error: delErr } = await supabase.from("users").delete().eq("id", userId);
+        if (delErr) {
+          if (delErr.message?.includes("row-level security")) {
+            throw new Error(
+              `Database permission error: Admin cannot delete from users table due to RLS. Please run 'supabase-roles-setup.sql' in your Supabase SQL Editor.`
+            );
+          }
+          throw delErr;
+        }
       }
 
       setMessage({
@@ -145,11 +162,19 @@ export default function AdminOrganizersAndUsersPage() {
 
     try {
       // 1. Try RPC function
-      const { error: rpcError } = await supabase.rpc("demote_organizer_to_user", {
+      const { data: rpcData, error: rpcError } = await supabase.rpc("demote_organizer_to_user", {
         target_user_id: org.id,
       });
 
       if (rpcError) {
+        console.warn("RPC demote_organizer_to_user failed or not found, attempting direct table fallback:", rpcError);
+
+        // Disassociate any events linked to this organizer to prevent foreign-key constraints
+        await supabase
+          .from("events")
+          .update({ organizer_id: null })
+          .eq("organizer_id", org.id);
+
         // Fallback: direct insert to users and delete from organizers
         const { error: insErr } = await supabase.from("users").upsert({
           id: org.id,
@@ -158,8 +183,24 @@ export default function AdminOrganizersAndUsersPage() {
           phone_number: org.phone_number || null,
         });
 
-        if (insErr) throw insErr;
-        await supabase.from("organizers").delete().eq("id", org.id);
+        if (insErr) {
+          if (insErr.message?.includes("row-level security") || rpcError.code === "PGRST202") {
+            throw new Error(
+              `Database setup required: Stored procedure 'demote_organizer_to_user' or admin RLS policy is not configured in Supabase. Please run 'supabase-roles-setup.sql' in the Supabase SQL Editor. (${insErr.message})`
+            );
+          }
+          throw insErr;
+        }
+
+        const { error: delErr } = await supabase.from("organizers").delete().eq("id", org.id);
+        if (delErr) {
+          if (delErr.message?.includes("row-level security")) {
+            throw new Error(
+              `Database permission error: Admin cannot delete from organizers table due to RLS. Please run 'supabase-roles-setup.sql' in your Supabase SQL Editor.`
+            );
+          }
+          throw delErr;
+        }
       }
 
       setMessage({

@@ -482,25 +482,6 @@ export default function BookTicketPage() {
             Book Tickets
           </h2>
 
-          {/* Prominent Live Remaining Tickets Banner */}
-          {overallRemaining !== null && (
-            <div className={`mb-5 p-3.5 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-semibold ${
-              overallRemaining <= 10 
-                ? "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50" 
-                : "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50"
-            }`}>
-              <div className="flex items-center gap-2">
-                <span className="text-base">{overallRemaining <= 10 ? "🔥" : "🎫"}</span>
-                <span>
-                  {overallRemaining <= 10 
-                    ? `High Demand: Only ${overallRemaining} tickets left!` 
-                    : `${overallRemaining} of ${event.total_tickets} tickets available`}
-                </span>
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider opacity-80">Live Capacity</span>
-            </div>
-          )}
-
           {errorMsg && (
             <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/50 dark:border-red-900/50 dark:text-red-400 text-sm font-medium">
               {errorMsg}
