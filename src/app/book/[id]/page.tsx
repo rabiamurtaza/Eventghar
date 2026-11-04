@@ -50,6 +50,48 @@ function formatAccountDetails(raw: string) {
   return { title: "", number: raw };
 }
 
+function format12HourTime(timeStr?: string): string {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length >= 2) {
+    const hours = parseInt(parts[0], 10);
+    const minutes = parts[1].slice(0, 2);
+    if (!isNaN(hours)) {
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const h12 = hours % 12 || 12;
+      return `${h12}:${minutes} ${ampm}`;
+    }
+  }
+  return timeStr;
+}
+
+function formatSimpleDate(dateStr?: string): string {
+  if (!dateStr) return "";
+  const dateOnly = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr.split(" ")[0];
+  const parts = dateOnly.split("-");
+  if (parts.length === 3) {
+    const year = parts[0];
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    if (!isNaN(month) && !isNaN(day) && months[month]) {
+      return `${day} ${months[month]} ${year}`;
+    }
+  }
+  return dateStr;
+}
+
+function formatDeadlineDisplay(deadlineStr?: string): string {
+  if (!deadlineStr) return "";
+  const [datePart, timePart] = deadlineStr.includes("T") ? deadlineStr.split("T") : deadlineStr.split(" ");
+  const formattedDate = formatSimpleDate(datePart);
+  if (timePart) {
+    const formattedTime = format12HourTime(timePart);
+    return `${formattedDate}, ${formattedTime}`;
+  }
+  return formattedDate;
+}
+
 export default function BookTicketPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id ?? "");
@@ -483,7 +525,7 @@ export default function BookTicketPage() {
                 )}
               </div>
             </div>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mb-4">{event.start_date} | {event.venue_name}</p>
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mb-4">{formatSimpleDate(event.start_date)} | {event.venue_name}</p>
             {event.is_student_only && (
               <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30 mb-4">
                 Student Only Event {event.university_name && `- ${event.university_name}`}
@@ -491,10 +533,10 @@ export default function BookTicketPage() {
             )}
 
             <div className="grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950 p-3.5 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-              {event.doors_open_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Doors Open</span><span className="text-neutral-900 dark:text-white font-medium">{event.doors_open_time}</span></div>}
-              {event.start_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Start Time</span><span className="text-neutral-900 dark:text-white font-medium">{event.start_time}</span></div>}
-              {event.end_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">End Time</span><span className="text-neutral-900 dark:text-white font-medium">{event.end_time}</span></div>}
-              {event.sales_deadline && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Sales Deadline</span><span className="text-neutral-900 dark:text-white font-medium">{event.sales_deadline}</span></div>}
+              {event.doors_open_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Doors Open</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.doors_open_time)}</span></div>}
+              {event.start_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Start Time</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.start_time)}</span></div>}
+              {event.end_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">End Time</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.end_time)}</span></div>}
+              {event.sales_deadline && <div className="col-span-2 sm:col-span-1"><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Sales Deadline</span><span className="text-neutral-900 dark:text-white font-medium">{formatDeadlineDisplay(event.sales_deadline)}</span></div>}
               {event.organizer_name && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Organizer</span><span className="text-neutral-900 dark:text-white font-medium">{event.organizer_name}</span></div>}
             </div>
             <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
