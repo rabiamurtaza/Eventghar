@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
@@ -343,16 +343,22 @@ export default function BookTicketPage() {
   const tierBookedCount = tierBookings[ticketType] || 0;
   const tierRemaining = selectedTierLimit !== null ? Math.max(0, selectedTierLimit - tierBookedCount) : null;
 
-  const isStudentOnly = event?.is_student_only === true || event?.is_student_only === "true";
-  const effectiveMaxAllowed = isStudentOnly
-    ? 1
-    : Math.max(
-        1,
-        Math.min(
-          overallRemaining !== null ? overallRemaining : 999999,
-          tierRemaining !== null ? tierRemaining : 999999
-        )
-      );
+  // Maximum allowed is the number of tickets still available (stock) with no artificial cap
+  const availableStock = Math.min(
+    overallRemaining !== null ? overallRemaining : Infinity,
+    tierRemaining !== null ? tierRemaining : Infinity
+  );
+
+  const maxAllowedTickets = isFinite(availableStock) ? Math.max(0, availableStock) : 999;
+
+  // Keep selected quantity strictly within [1, maxAllowedTickets]
+  useEffect(() => {
+    if (maxAllowedTickets > 0 && numberOfTickets > maxAllowedTickets) {
+      setNumberOfTickets(maxAllowedTickets);
+    } else if (numberOfTickets < 1) {
+      setNumberOfTickets(1);
+    }
+  }, [maxAllowedTickets, numberOfTickets]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -373,14 +379,28 @@ export default function BookTicketPage() {
       return;
     }
 
-    if (overallRemaining !== null && numberOfTickets > overallRemaining) {
-      setErrorMsg(`Cannot book ${numberOfTickets} ticket(s). Only ${overallRemaining} ticket(s) are remaining for this event.`);
+    // Backend-grade quantity validation: at least 1 and within available stock
+    const qty = parseInt(String(numberOfTickets), 10);
+    if (isNaN(qty) || qty < 1) {
+      setErrorMsg("Number of tickets must be at least 1.");
       setSubmitting(false);
       return;
     }
 
-    if (tierRemaining !== null && numberOfTickets > tierRemaining) {
+    if (overallRemaining !== null && qty > overallRemaining) {
+      setErrorMsg(`Cannot book ${qty} ticket(s). Only ${overallRemaining} ticket(s) are remaining for this event.`);
+      setSubmitting(false);
+      return;
+    }
+
+    if (tierRemaining !== null && qty > tierRemaining) {
       setErrorMsg(`Only ${tierRemaining} ticket(s) remaining for ${ticketType}. Please adjust quantity.`);
+      setSubmitting(false);
+      return;
+    }
+
+    if (maxAllowedTickets > 0 && qty > maxAllowedTickets) {
+      setErrorMsg(`Cannot book ${qty} ticket(s). Only ${maxAllowedTickets} ticket(s) are available.`);
       setSubmitting(false);
       return;
     }
@@ -407,6 +427,38 @@ export default function BookTicketPage() {
 
     const supabase = createClient();
 
+    // Verify latest database bookings at time of submission to prevent overselling
+    const { data: freshBookings } = await supabase
+      .from('bookings')
+      .select('ticket_type, number_of_tickets')
+      .eq('event_id', event.id)
+      .in('status', ['verified', 'confirmed', 'pending']);
+
+    let freshTotal = 0;
+    let freshTierTotal = 0;
+    if (freshBookings) {
+      freshBookings.forEach((b: any) => {
+        const count = Number(b.number_of_tickets) || 1;
+        freshTotal += count;
+        if (b.ticket_type === (ticketType || 'Standard')) {
+          freshTierTotal += count;
+        }
+      });
+    }
+
+    const freshOverallRem = event.total_tickets ? Math.max(0, Number(event.total_tickets) - freshTotal) : null;
+    const freshTierRem = selectedTierLimit !== null ? Math.max(0, selectedTierLimit - freshTierTotal) : null;
+    const freshMaxAvailable = Math.min(
+      freshOverallRem !== null ? freshOverallRem : Infinity,
+      freshTierRem !== null ? freshTierRem : Infinity
+    );
+
+    if (isFinite(freshMaxAvailable) && qty > freshMaxAvailable) {
+      setErrorMsg(`Sorry, available tickets just changed! Only ${freshMaxAvailable} ticket(s) remain.`);
+      setSubmitting(false);
+      return;
+    }
+
     let paymentScreenshotUrl = "";
     let studentIdUrl = null;
 
@@ -425,7 +477,7 @@ export default function BookTicketPage() {
         full_name: fullName.trim(),
         phone_number: cleanPhone,
         ticket_type: ticketType || 'Standard',
-        number_of_tickets: Math.min(numberOfTickets, effectiveMaxAllowed),
+        number_of_tickets: qty,
         payment_screenshot_url: paymentScreenshotUrl,
         student_id_url: studentIdUrl,
         status: 'pending'
@@ -700,14 +752,14 @@ export default function BookTicketPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Ticket Type *</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Ticket Type *</label>
                 <select 
                   value={ticketType} 
                   onChange={e => {
                     setTicketType(e.target.value);
                     setNumberOfTickets(1);
                   }} 
-                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+                  className="w-full h-12 rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
                 >
                   {ticketOptions.map((t, i) => {
                     const tLimit = t.total ? Number(t.total) : null;
@@ -723,33 +775,64 @@ export default function BookTicketPage() {
                   {ticketOptions.length === 0 && <option value="Standard">Standard (Free)</option>}
                 </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Number of Tickets *{isStudentOnly && (
-                    <span className="text-xs text-neutral-400"> (Max 1)</span>
-                  )}
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Number of Tickets *
                 </label>
-                <input 
-                  type="number" 
-                  required 
-                  min={1} 
-                  max={effectiveMaxAllowed} 
-                  step={1}
-                  value={numberOfTickets} 
-                  onFocus={e => e.target.select()}
-                  onChange={e => {
-                    const raw = e.target.value;
-                    if (raw === "") {
-                      setNumberOfTickets(1);
-                      return;
-                    }
-                    let val = parseInt(raw, 10);
-                    if (isNaN(val) || val < 1) val = 1;
-                    if (val > effectiveMaxAllowed) val = effectiveMaxAllowed;
-                    setNumberOfTickets(val);
-                  }} 
-                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
-                />
+
+                {/* Quantity Stepper */}
+                <div className="flex items-center">
+                  <div className="inline-flex items-center rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-1 shadow-xs">
+                    {/* Minus button: red icon, min 44px tap target, disabled/greyed out at 1 */}
+                    <button
+                      type="button"
+                      onClick={() => setNumberOfTickets(prev => Math.max(1, prev - 1))}
+                      disabled={numberOfTickets <= 1}
+                      aria-label="Decrease tickets"
+                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-white dark:bg-neutral-900 text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-neutral-200 dark:border-neutral-800 transition focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900 disabled:opacity-30 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:hover:bg-white dark:disabled:hover:bg-neutral-900 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                      </svg>
+                    </button>
+
+                    {/* Middle: bold black number */}
+                    <span 
+                      className="w-14 text-center font-bold text-neutral-900 dark:text-white text-lg select-none"
+                      aria-live="polite"
+                    >
+                      {numberOfTickets}
+                    </span>
+
+                    {/* Plus button: black icon, min 44px tap target, disabled/greyed out at max stock */}
+                    <button
+                      type="button"
+                      onClick={() => setNumberOfTickets(prev => Math.min(maxAllowedTickets, prev + 1))}
+                      disabled={numberOfTickets >= maxAllowedTickets}
+                      aria-label="Increase tickets"
+                      className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 transition focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900 disabled:opacity-30 disabled:text-neutral-400 dark:disabled:text-neutral-600 disabled:hover:bg-white dark:disabled:hover:bg-neutral-900 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Low ticket inventory alert */}
+                {maxAllowedTickets <= 12 && maxAllowedTickets > 0 && (
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+                    <span>⚠️</span>
+                    <span>Only {maxAllowedTickets} {maxAllowedTickets === 1 ? "ticket" : "tickets"} left</span>
+                  </p>
+                )}
+                {maxAllowedTickets <= 0 && (
+                  <p className="text-xs font-semibold text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
+                    <span>⚠️</span>
+                    <span>Sold out</span>
+                  </p>
+                )}
               </div>
             </div>
 
