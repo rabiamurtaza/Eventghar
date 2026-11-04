@@ -51,6 +51,7 @@ export default function BookTicketPage() {
   // Form State
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [hasSavedPhone, setHasSavedPhone] = useState(false);
   const [ticketType, setTicketType] = useState("");
   const [numberOfTickets, setNumberOfTickets] = useState(1);
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
@@ -107,7 +108,12 @@ export default function BookTicketPage() {
       }
 
       setFullName(fetchedName);
-      if (fetchedPhone) setPhoneNumber(fetchedPhone);
+      if (fetchedPhone && fetchedPhone.trim().length > 0) {
+        setPhoneNumber(fetchedPhone.trim());
+        setHasSavedPhone(true);
+      } else {
+        setHasSavedPhone(false);
+      }
 
       let query = supabase.from('events').select('*');
       const isNum = !isNaN(Number(id)) && !isNaN(parseInt(id, 10));
@@ -182,6 +188,46 @@ export default function BookTicketPage() {
       setLoading(false);
     }
     if (id) init();
+
+    // Re-sync profile details when user focuses tab (e.g. if updated in My Account)
+    const handleProfileSync = async () => {
+      const supabase = createClient();
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!activeSession) return;
+
+      const { data: uProf } = await supabase
+        .from('users')
+        .select('full_name, phone_number')
+        .eq('id', activeSession.user.id)
+        .maybeSingle();
+
+      let pName = uProf?.full_name || "";
+      let pPhone = uProf?.phone_number || "";
+
+      if (!pPhone) {
+        const { data: oProf } = await supabase
+          .from('organizers')
+          .select('full_name, phone_number')
+          .eq('id', activeSession.user.id)
+          .maybeSingle();
+        pName = oProf?.full_name || pName;
+        pPhone = oProf?.phone_number || "";
+      }
+
+      if (pName) setFullName(pName);
+      if (pPhone && pPhone.trim().length > 0) {
+        setPhoneNumber(pPhone.trim());
+        setHasSavedPhone(true);
+      }
+    };
+
+    window.addEventListener("focus", handleProfileSync);
+    document.addEventListener("visibilitychange", handleProfileSync);
+
+    return () => {
+      window.removeEventListener("focus", handleProfileSync);
+      document.removeEventListener("visibilitychange", handleProfileSync);
+    };
   }, [id, router]);
 
   // Compute event lifecycle & remaining inventory
@@ -307,6 +353,7 @@ export default function BookTicketPage() {
             phone_number: cleanPhone,
           }, { onConflict: 'id' });
         }
+        setHasSavedPhone(true);
       } catch (profileErr) {
         console.error("Failed to update user profile with phone number:", profileErr);
       }
@@ -463,45 +510,54 @@ export default function BookTicketPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Account Information (Read-only from account) */}
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-950">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Booking Ticket Holder</span>
-                <Link 
-                  href="/my-account" 
-                  target="_blank" 
-                  className="text-xs font-semibold text-green-600 dark:text-green-400 hover:underline"
-                >
-                  Edit Name in My Account ↗
-                </Link>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-400 font-bold text-sm">
-                  {fullName ? fullName.charAt(0).toUpperCase() : "U"}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-neutral-900 dark:text-white truncate">
-                    {fullName || session?.user?.email?.split('@')[0] || "User"}
-                  </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                    {session?.user?.email}
-                  </p>
-                </div>
-              </div>
-            </div>
-
+            {/* Contact Details (Clean, standard form fields) */}
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                Phone Number * <span className="text-xs text-neutral-400">(e.g. 03001234567 or +923001234567)</span>
+                Full Name
               </label>
               <input 
-                type="tel" 
-                required 
-                value={phoneNumber} 
-                onChange={e => setPhoneNumber(e.target.value)} 
-                placeholder="03XXXXXXXXX" 
-                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
+                type="text" 
+                disabled 
+                value={fullName}
+                className="w-full rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-800 dark:text-neutral-200 cursor-not-allowed outline-none" 
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Email Address
+                </label>
+                <input 
+                  type="email" 
+                  disabled 
+                  value={session?.user?.email || ""}
+                  className="w-full rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-800 dark:text-neutral-200 cursor-not-allowed outline-none truncate" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Phone Number *
+                </label>
+                {hasSavedPhone ? (
+                  <input 
+                    type="tel" 
+                    disabled 
+                    value={phoneNumber} 
+                    className="w-full rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-800 dark:text-neutral-200 cursor-not-allowed outline-none" 
+                  />
+                ) : (
+                  <input 
+                    type="tel" 
+                    required 
+                    value={phoneNumber} 
+                    onChange={e => setPhoneNumber(e.target.value)} 
+                    placeholder="03XXXXXXXXX" 
+                    className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
+                  />
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
