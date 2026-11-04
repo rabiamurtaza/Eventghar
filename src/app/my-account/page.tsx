@@ -346,15 +346,14 @@ export default function MyAccountPage() {
     return groupedEvents.reduce((sum, g) => sum + g.totalTickets, 0);
   }, [groupedEvents]);
 
-  // Keep selected event modal updated if data changes
+  // Keep selected event updated if tickets data changes
   useEffect(() => {
-    if (selectedEventForTickets) {
-      const updated = groupedEvents.find((g) => g.eventId === selectedEventForTickets.eventId);
-      if (updated) {
-        setSelectedEventForTickets(updated);
-      }
+    if (!selectedEventForTickets) return;
+    const updated = groupedEvents.find((g) => g.eventId === selectedEventForTickets.eventId);
+    if (updated && updated !== selectedEventForTickets) {
+      setSelectedEventForTickets(updated);
     }
-  }, [groupedEvents, selectedEventForTickets]);
+  }, [groupedEvents]);
 
   if (loading) {
     return (
@@ -800,117 +799,138 @@ export default function MyAccountPage() {
             {/* Tickets Content (Users Only) */}
             {role !== "organizer" && activeTab === "tickets" && (
               <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">My Booked Tickets</h2>
-                
-                {groupedEvents.length === 0 ? (
-                  <div className="text-center py-10 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
-                    <p className="text-neutral-500 dark:text-neutral-400 mb-4">You haven't booked any tickets yet.</p>
-                    <button 
-                      onClick={() => router.push("/")}
-                      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition"
+                {selectedEventForTickets ? (
+                  /* Event Tickets View (In-Place on the page, replacing the event card list) */
+                  <div>
+                    {/* Back Button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEventForTickets(null)}
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition cursor-pointer mb-6 group focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg px-2 py-1 -ml-2"
                     >
-                      Explore Events
+                      <svg
+                        className="w-5 h-5 transition-transform group-hover:-translate-x-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                      <span>Back to Events</span>
                     </button>
+
+                    {/* Heading: Event Name & Ticket Count */}
+                    <div className="mb-8 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+                      <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white break-words">
+                        {selectedEventForTickets.eventTitle}
+                      </h2>
+                      <p className="mt-1 text-sm font-semibold text-neutral-500 dark:text-neutral-400">
+                        {selectedEventForTickets.totalTickets} {selectedEventForTickets.totalTickets === 1 ? "ticket" : "tickets"}
+                      </p>
+                    </div>
+
+                    {/* Full Natural-Size Vertically Stacked Tickets (No fixed height container, with scroll-snap) */}
+                    <div
+                      className="w-full flex flex-col items-center space-y-10 sm:space-y-12 py-2"
+                      style={{ scrollSnapType: "y proximity" }}
+                    >
+                      {selectedEventForTickets.verifiedPasses.map((pass: any, idx: number) => (
+                        <div
+                          key={pass.id || `ticket-${idx}`}
+                          className="w-full flex justify-center shrink-0"
+                          style={{ scrollSnapAlign: "start" }}
+                        >
+                          <TicketPassCard
+                            passType={pass.ticket_type}
+                            ticketNumber={idx + 1}
+                            eventTitle={selectedEventForTickets.eventTitle}
+                            eventDate={selectedEventForTickets.eventDateFormatted}
+                            venue={selectedEventForTickets.venue}
+                            attendeeName={pass.holder_name}
+                            status={pass.status}
+                            qrValue={pass.qrValue}
+                            ticketIndex={idx + 1}
+                            ticketTotal={selectedEventForTickets.verifiedPasses.length}
+                          />
+                        </div>
+                      ))}
+
+                      {/* Pending Verification Notice */}
+                      {selectedEventForTickets.pendingCount > 0 && (
+                        <div className="w-full max-w-[340px] p-4 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center shrink-0">
+                          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 mb-2">
+                            Verification Pending
+                          </span>
+                          <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                            {selectedEventForTickets.pendingCount} {selectedEventForTickets.pendingCount === 1 ? "ticket is" : "tickets are"} awaiting payment verification by the organizer. Once verified, QR entry passes will appear here automatically.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Rejected Notice */}
+                      {selectedEventForTickets.rejectedCount > 0 && (
+                        <div className="w-full max-w-[340px] p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center shrink-0">
+                          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 mb-2">
+                            Booking Not Verified
+                          </span>
+                          <p className="text-xs text-red-800 dark:text-red-300">
+                            {selectedEventForTickets.rejectedCount} ticket booking was rejected. Please contact event support.
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                    {groupedEvents.map((group) => {
-                      const count = group.totalTickets;
-                      const countText = `${count} ${count === 1 ? "ticket" : "tickets"}`;
-
-                      return (
-                        <button
-                          key={group.eventId}
-                          type="button"
-                          onClick={() => setSelectedEventForTickets(group)}
-                          className="w-full text-left p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#1E2028] hover:border-indigo-500/60 dark:hover:border-indigo-500/60 hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+                  /* Event Cards List */
+                  <div>
+                    <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">My Booked Tickets</h2>
+                    
+                    {groupedEvents.length === 0 ? (
+                      <div className="text-center py-10 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+                        <p className="text-neutral-500 dark:text-neutral-400 mb-4">You haven't booked any tickets yet.</p>
+                        <button 
+                          onClick={() => router.push("/")}
+                          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition"
                         >
-                          <h3 className="text-lg font-bold text-neutral-900 dark:text-[#ECEDF2] break-words">
-                            {group.eventTitle}
-                          </h3>
-                          <p className="mt-2 text-sm font-semibold text-neutral-500 dark:text-[#9AA0AE]">
-                            {countText}
-                          </p>
+                          Explore Events
                         </button>
-                      );
-                    })}
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                        {groupedEvents.map((group) => {
+                          const count = group.totalTickets;
+                          const countText = `${count} ${count === 1 ? "ticket" : "tickets"}`;
+
+                          return (
+                            <button
+                              key={group.eventId}
+                              type="button"
+                              onClick={() => setSelectedEventForTickets(group)}
+                              className="w-full text-left p-5 sm:p-6 rounded-[18px] bg-[linear-gradient(135deg,#4F46E5,#9B1CF5)] text-white shadow-md hover:shadow-lg hover:opacity-95 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 transition duration-200 cursor-pointer flex items-center justify-between gap-4"
+                            >
+                              <div className="flex-1 min-w-0 pr-2">
+                                <h3 className="text-lg sm:text-xl font-bold text-white break-words leading-snug">
+                                  {group.eventTitle}
+                                </h3>
+                                <p className="mt-1.5 text-sm font-medium text-white/85">
+                                  {countText}
+                                </p>
+                              </div>
+                              <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/15 text-white">
+                                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </>
-        )}
-
-        {/* Full Tickets Modal for Selected Event */}
-        {selectedEventForTickets && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-lg max-h-[92vh] bg-[#F3F4F6] dark:bg-[#14151A] rounded-3xl border border-[#E5E7EB] dark:border-[#33363F] flex flex-col overflow-hidden shadow-2xl">
-              {/* Modal Header */}
-              <div className="p-4 sm:p-5 border-b border-[#E5E7EB] dark:border-[#33363F] bg-white dark:bg-[#1E2028] flex items-center justify-between shrink-0">
-                <div className="pr-3">
-                  <h3 className="text-lg sm:text-xl font-bold text-[#1F2430] dark:text-[#ECEDF2] line-clamp-1">
-                    {selectedEventForTickets.eventTitle}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-[#6B7280] dark:text-[#9AA0AE]">
-                    {selectedEventForTickets.totalTickets} {selectedEventForTickets.totalTickets === 1 ? "ticket" : "tickets"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedEventForTickets(null)}
-                  className="p-2 rounded-xl text-[#6B7280] dark:text-[#9AA0AE] hover:text-[#1F2430] dark:hover:text-[#ECEDF2] hover:bg-neutral-100 dark:hover:bg-[#262933] transition cursor-pointer"
-                  aria-label="Close tickets"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Modal Body: Scrollable list of tickets */}
-              <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex flex-col items-center">
-                {selectedEventForTickets.verifiedPasses.map((pass: any, idx: number) => (
-                  <TicketPassCard
-                    key={pass.id || `ticket-${idx}`}
-                    passType={pass.ticket_type}
-                    ticketNumber={idx + 1}
-                    eventTitle={selectedEventForTickets.eventTitle}
-                    eventDate={selectedEventForTickets.eventDateFormatted}
-                    venue={selectedEventForTickets.venue}
-                    attendeeName={pass.holder_name}
-                    status={pass.status}
-                    qrValue={pass.qrValue}
-                    ticketIndex={idx + 1}
-                    ticketTotal={selectedEventForTickets.verifiedPasses.length}
-                  />
-                ))}
-
-                {/* If there are pending tickets */}
-                {selectedEventForTickets.pendingCount > 0 && (
-                  <div className="w-full max-w-[340px] p-4 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center">
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 mb-2">
-                      Verification Pending
-                    </span>
-                    <p className="text-xs text-yellow-800 dark:text-yellow-300">
-                      {selectedEventForTickets.pendingCount} {selectedEventForTickets.pendingCount === 1 ? "ticket is" : "tickets are"} awaiting payment verification by the organizer. Once verified, QR entry passes will appear here automatically.
-                    </p>
-                  </div>
-                )}
-
-                {/* If there are rejected tickets */}
-                {selectedEventForTickets.rejectedCount > 0 && (
-                  <div className="w-full max-w-[340px] p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center">
-                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 mb-2">
-                      Booking Not Verified
-                    </span>
-                    <p className="text-xs text-red-800 dark:text-red-300">
-                      {selectedEventForTickets.rejectedCount} ticket booking was rejected. Please contact event support.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </div>

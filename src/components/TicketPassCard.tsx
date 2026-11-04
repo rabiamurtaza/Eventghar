@@ -126,7 +126,7 @@ export default function TicketPassCard({
   return (
     <div
       ref={cardRef}
-      className="w-full max-w-[340px] mx-auto bg-white dark:bg-[#1E2028] border border-[#E5E7EB] dark:border-[#33363F] rounded-[18px] overflow-hidden flex flex-col shadow-none"
+      className="w-full max-w-[340px] mx-auto bg-white dark:bg-[#1E2028] border border-[#E5E7EB] dark:border-[#33363F] rounded-[18px] overflow-hidden flex flex-col shrink-0 h-auto shadow-none"
     >
       {/* 1. Header with Gradient */}
       <div className="bg-[linear-gradient(135deg,#4F46E5,#9B1CF5)] text-white p-[20px_22px]">
