@@ -305,18 +305,16 @@ export default function BookTicketPage() {
   const tierBookedCount = tierBookings[ticketType] || 0;
   const tierRemaining = selectedTierLimit !== null ? Math.max(0, selectedTierLimit - tierBookedCount) : null;
 
-  const baseMaxAllowed = (event?.is_student_only === true || event?.is_student_only === "true")
+  const isStudentOnly = event?.is_student_only === true || event?.is_student_only === "true";
+  const effectiveMaxAllowed = isStudentOnly
     ? 1
-    : Math.max(1, Number(event?.max_tickets_per_person) || 3);
-
-  const effectiveMaxAllowed = Math.max(
-    1,
-    Math.min(
-      baseMaxAllowed,
-      overallRemaining !== null ? overallRemaining : baseMaxAllowed,
-      tierRemaining !== null ? tierRemaining : baseMaxAllowed
-    )
-  );
+    : Math.max(
+        1,
+        Math.min(
+          overallRemaining !== null ? overallRemaining : 999999,
+          tierRemaining !== null ? tierRemaining : 999999
+        )
+      );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -689,11 +687,9 @@ export default function BookTicketPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Number of Tickets * <span className="text-xs text-neutral-400">
-                    ({(event.is_student_only === true || event.is_student_only === 'true') 
-                      ? 'Max 1' 
-                      : `Max ${effectiveMaxAllowed}`})
-                  </span>
+                  Number of Tickets *{isStudentOnly && (
+                    <span className="text-xs text-neutral-400"> (Max 1)</span>
+                  )}
                 </label>
                 <input 
                   type="number" 

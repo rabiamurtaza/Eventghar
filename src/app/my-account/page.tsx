@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import TicketPassCard from "@/components/TicketPassCard";
+import { buildQRPayload } from "@/utils/ticketService";
 
 export default function MyAccountPage() {
   const [activeTab, setActiveTab] = useState<"profile" | "tickets" | "events">("profile");
@@ -21,6 +22,7 @@ export default function MyAccountPage() {
   // Tickets state (for normal users)
   const [tickets, setTickets] = useState<any[]>([]);
   const [issuedTicketsMap, setIssuedTicketsMap] = useState<Record<string, any[]>>({});
+  const [selectedEventForTickets, setSelectedEventForTickets] = useState<any | null>(null);
 
   // Events state (for organizers)
   const [organizerEvents, setOrganizerEvents] = useState<any[]>([]);
@@ -111,11 +113,23 @@ export default function MyAccountPage() {
         }
 
         // Fetch issued tickets / passes with QR codes
-        const { data: issuedData } = await supabase
-          .from("issued_tickets")
-          .select("*")
-          .eq("holder_email", session.user.email)
-          .order("ticket_number", { ascending: true });
+        const bookingIds = (bookingsData || []).map((b: any) => b.id);
+        let issuedData: any[] = [];
+        if (bookingIds.length > 0) {
+          const { data } = await supabase
+            .from("issued_tickets")
+            .select("*")
+            .in("booking_id", bookingIds)
+            .order("ticket_number", { ascending: true });
+          issuedData = data || [];
+        } else {
+          const { data } = await supabase
+            .from("issued_tickets")
+            .select("*")
+            .eq("holder_email", session.user.email)
+            .order("ticket_number", { ascending: true });
+          issuedData = data || [];
+        }
 
         if (issuedData) {
           const map: Record<string, any[]> = {};
@@ -209,6 +223,139 @@ export default function MyAccountPage() {
     }
   };
 
+  // Group all user's tickets by event
+  const groupedEvents = useMemo(() => {
+    const groups: Record<string, {
+      eventId: string;
+      eventTitle: string;
+      eventDateFormatted: string;
+      venue: string;
+      totalTickets: number;
+      verifiedPasses: any[];
+      pendingCount: number;
+      rejectedCount: number;
+    }> = {};
+
+    tickets.forEach((booking) => {
+      const eventId = booking.event_id || booking.event?.id || "unknown";
+      const event = booking.event || {};
+
+      if (!groups[eventId]) {
+        const title = event.title || "Untitled Event";
+        const dateFormatted = event.start_date
+          ? new Date(event.start_date).toLocaleDateString("en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "Date TBA";
+        const venue = event.venue_name || event.location || "Venue TBA";
+
+        groups[eventId] = {
+          eventId,
+          eventTitle: title,
+          eventDateFormatted: dateFormatted,
+          venue,
+          totalTickets: 0,
+          verifiedPasses: [],
+          pendingCount: 0,
+          rejectedCount: 0,
+        };
+      }
+
+      const grp = groups[eventId];
+      const count = Math.max(1, Number(booking.number_of_tickets) || 1);
+      grp.totalTickets += count;
+
+      const isVerified = booking.status === "verified" || booking.status === "confirmed";
+
+      if (isVerified) {
+        const existingPasses = issuedTicketsMap[booking.id] || [];
+        if (existingPasses.length > 0) {
+          existingPasses.forEach((pass) => {
+            grp.verifiedPasses.push(pass);
+          });
+        } else {
+          // Fallback if issued_tickets records not yet generated in table
+          for (let i = 1; i <= count; i++) {
+            const hex = Math.random().toString(36).substring(2, 5).toUpperCase();
+            const prefix = booking.id.replace(/-/g, "").slice(0, 4).toUpperCase();
+            const ticketCode = `EG-${prefix}${hex}-${i}`;
+            grp.verifiedPasses.push({
+              id: `${booking.id}-${i}`,
+              booking_id: booking.id,
+              event_id: eventId,
+              ticket_number: i,
+              total_tickets: count,
+              ticket_type: booking.ticket_type || "Standard",
+              ticket_code: ticketCode,
+              holder_name: booking.full_name || fullName || email.split("@")[0] || "Guest",
+              status: "valid",
+            });
+          }
+        }
+      } else if (booking.status === "rejected") {
+        grp.rejectedCount += count;
+      } else {
+        grp.pendingCount += count;
+      }
+    });
+
+    // Recalculate ticketIndex, ticketTotal, status, and qrValue across all passes for that event
+    return Object.values(groups).map((grp) => {
+      const verifiedTotal = grp.verifiedPasses.length;
+      const formattedPasses = grp.verifiedPasses.map((pass, idx) => {
+        const ticketIdx = idx + 1;
+        const rawStatus = (pass.status || "valid").toLowerCase();
+        const status: "valid" | "used" | "expired" =
+          rawStatus === "used" || rawStatus === "scanned"
+            ? "used"
+            : rawStatus === "expired"
+            ? "expired"
+            : "valid";
+
+        const qrValue = buildQRPayload(
+          {
+            id: pass.id || `ticket-${ticketIdx}`,
+            ticket_code: pass.ticket_code || `EG-TKT-${ticketIdx}`,
+            event_id: grp.eventId,
+            ticket_number: ticketIdx,
+            total_tickets: verifiedTotal,
+            holder_name: pass.holder_name || fullName || "Guest",
+          },
+          grp.eventTitle
+        );
+
+        return {
+          ...pass,
+          ticket_number: ticketIdx,
+          total_tickets: verifiedTotal,
+          status,
+          qrValue,
+        };
+      });
+
+      return {
+        ...grp,
+        verifiedPasses: formattedPasses,
+      };
+    });
+  }, [tickets, issuedTicketsMap, fullName, email]);
+
+  const totalTicketsCount = useMemo(() => {
+    return groupedEvents.reduce((sum, g) => sum + g.totalTickets, 0);
+  }, [groupedEvents]);
+
+  // Keep selected event modal updated if data changes
+  useEffect(() => {
+    if (selectedEventForTickets) {
+      const updated = groupedEvents.find((g) => g.eventId === selectedEventForTickets.eventId);
+      if (updated) {
+        setSelectedEventForTickets(updated);
+      }
+    }
+  }, [groupedEvents, selectedEventForTickets]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
@@ -274,7 +421,7 @@ export default function MyAccountPage() {
                       : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
                   }`}
                 >
-                  My Tickets ({tickets.length})
+                  My Tickets ({totalTicketsCount})
                 </button>
               )}
             </div>
@@ -655,7 +802,7 @@ export default function MyAccountPage() {
               <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
                 <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">My Booked Tickets</h2>
                 
-                {tickets.length === 0 ? (
+                {groupedEvents.length === 0 ? (
                   <div className="text-center py-10 border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
                     <p className="text-neutral-500 dark:text-neutral-400 mb-4">You haven't booked any tickets yet.</p>
                     <button 
@@ -666,81 +813,25 @@ export default function MyAccountPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {tickets.map((ticket) => {
-                      const isVerified = ticket.status === 'verified' || ticket.status === 'confirmed';
-                      const passes = issuedTicketsMap[ticket.id] || [];
-
-                      if (isVerified) {
-                        return (
-                          <TicketPassCard
-                            key={ticket.id}
-                            booking={ticket}
-                            passes={passes}
-                          />
-                        );
-                      }
+                  <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                    {groupedEvents.map((group) => {
+                      const count = group.totalTickets;
+                      const countText = `${count} ${count === 1 ? "ticket" : "tickets"}`;
 
                       return (
-                        <div key={ticket.id} className="border border-neutral-200 dark:border-neutral-800 rounded-2xl p-5 flex flex-col justify-between bg-white dark:bg-neutral-900 shadow-sm">
-                          <div>
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <h3 className="font-bold text-neutral-900 dark:text-white line-clamp-1">
-                                {ticket.event?.title || "Event details unavailable"}
-                              </h3>
-                              {ticket.event?.event_number && (
-                                <span className="shrink-0 text-xs font-bold px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700">
-                                  #{ticket.event.event_number}
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-3 space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
-                              <p className="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                  <line x1="16" y1="2" x2="16" y2="6" />
-                                  <line x1="8" y1="2" x2="8" y2="6" />
-                                  <line x1="3" y1="10" x2="21" y2="10" />
-                                </svg>
-                                {ticket.event?.start_date ? new Date(ticket.event.start_date).toLocaleDateString() : "TBD"}
-                              </p>
-                              <p className="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                  <circle cx="12" cy="10" r="3" />
-                                </svg>
-                                {ticket.event?.venue_name || "TBD"}
-                              </p>
-                              <p className="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                  <rect width="20" height="14" x="2" y="5" rx="2" />
-                                  <line x1="2" x2="22" y1="10" y2="10" />
-                                </svg>
-                                {ticket.number_of_tickets}x {ticket.ticket_type} Ticket(s)
-                              </p>
-                            </div>
-                            
-                            <div className="mt-5 pt-4 border-t border-neutral-200 dark:border-neutral-800">
-                              <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-2">Verification Status</p>
-                              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                ticket.status === 'rejected'
-                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-800/50'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/50'
-                              }`}>
-                                {ticket.status ? ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1) : "Pending"}
-                              </span>
-                              {ticket.status === 'rejected' ? (
-                                <p className="text-xs text-red-500 mt-2">
-                                  Your booking was not verified. Please contact support.
-                                </p>
-                              ) : (
-                                <p className="text-xs text-neutral-500 mt-2">
-                                  Your payment proof is being verified. QR codes will appear here immediately upon approval.
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        <button
+                          key={group.eventId}
+                          type="button"
+                          onClick={() => setSelectedEventForTickets(group)}
+                          className="w-full text-left p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#1E2028] hover:border-indigo-500/60 dark:hover:border-indigo-500/60 hover:shadow-md transition cursor-pointer flex flex-col justify-between"
+                        >
+                          <h3 className="text-lg font-bold text-neutral-900 dark:text-[#ECEDF2] break-words">
+                            {group.eventTitle}
+                          </h3>
+                          <p className="mt-2 text-sm font-semibold text-neutral-500 dark:text-[#9AA0AE]">
+                            {countText}
+                          </p>
+                        </button>
                       );
                     })}
                   </div>
@@ -748,6 +839,78 @@ export default function MyAccountPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* Full Tickets Modal for Selected Event */}
+        {selectedEventForTickets && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-lg max-h-[92vh] bg-[#F3F4F6] dark:bg-[#14151A] rounded-3xl border border-[#E5E7EB] dark:border-[#33363F] flex flex-col overflow-hidden shadow-2xl">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-[#E5E7EB] dark:border-[#33363F] bg-white dark:bg-[#1E2028] flex items-center justify-between shrink-0">
+                <div className="pr-3">
+                  <h3 className="text-lg sm:text-xl font-bold text-[#1F2430] dark:text-[#ECEDF2] line-clamp-1">
+                    {selectedEventForTickets.eventTitle}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#6B7280] dark:text-[#9AA0AE]">
+                    {selectedEventForTickets.totalTickets} {selectedEventForTickets.totalTickets === 1 ? "ticket" : "tickets"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEventForTickets(null)}
+                  className="p-2 rounded-xl text-[#6B7280] dark:text-[#9AA0AE] hover:text-[#1F2430] dark:hover:text-[#ECEDF2] hover:bg-neutral-100 dark:hover:bg-[#262933] transition cursor-pointer"
+                  aria-label="Close tickets"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Body: Scrollable list of tickets */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex flex-col items-center">
+                {selectedEventForTickets.verifiedPasses.map((pass: any, idx: number) => (
+                  <TicketPassCard
+                    key={pass.id || `ticket-${idx}`}
+                    passType={pass.ticket_type}
+                    ticketNumber={idx + 1}
+                    eventTitle={selectedEventForTickets.eventTitle}
+                    eventDate={selectedEventForTickets.eventDateFormatted}
+                    venue={selectedEventForTickets.venue}
+                    attendeeName={pass.holder_name}
+                    status={pass.status}
+                    qrValue={pass.qrValue}
+                    ticketIndex={idx + 1}
+                    ticketTotal={selectedEventForTickets.verifiedPasses.length}
+                  />
+                ))}
+
+                {/* If there are pending tickets */}
+                {selectedEventForTickets.pendingCount > 0 && (
+                  <div className="w-full max-w-[340px] p-4 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center">
+                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 mb-2">
+                      Verification Pending
+                    </span>
+                    <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                      {selectedEventForTickets.pendingCount} {selectedEventForTickets.pendingCount === 1 ? "ticket is" : "tickets are"} awaiting payment verification by the organizer. Once verified, QR entry passes will appear here automatically.
+                    </p>
+                  </div>
+                )}
+
+                {/* If there are rejected tickets */}
+                {selectedEventForTickets.rejectedCount > 0 && (
+                  <div className="w-full max-w-[340px] p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center">
+                    <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 mb-2">
+                      Booking Not Verified
+                    </span>
+                    <p className="text-xs text-red-800 dark:text-red-300">
+                      {selectedEventForTickets.rejectedCount} ticket booking was rejected. Please contact event support.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

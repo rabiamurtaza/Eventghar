@@ -1,189 +1,207 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { buildQRPayload } from "@/utils/ticketService";
+import { toBlob } from "html-to-image";
 
-export interface PassItem {
-  id: string;
-  ticket_code: string;
-  ticket_number: number;
-  total_tickets: number;
-  ticket_type?: string;
-  holder_name: string;
-  holder_email?: string;
-  event_id?: string;
-  status: string;
+export interface TicketPassProps {
+  passType: string;
+  ticketNumber: number | string;
+  eventTitle: string;
+  eventDate: string;
+  venue: string;
+  attendeeName: string;
+  status: "valid" | "used" | "expired";
+  qrValue: string;
+  ticketIndex: number;
+  ticketTotal: number;
 }
 
-export interface TicketPassCardProps {
-  booking: {
-    id: string;
-    event?: {
-      title?: string;
-      event_number?: number | string;
-      start_date?: string;
-      venue_name?: string;
-    };
-    [key: string]: unknown;
-  };
-  passes: PassItem[];
-}
+export default function TicketPassCard({
+  passType,
+  ticketNumber,
+  eventTitle,
+  eventDate,
+  venue,
+  attendeeName,
+  status = "valid",
+  qrValue,
+  ticketIndex,
+  ticketTotal,
+}: TicketPassProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-export default function TicketPassCard({ booking, passes }: TicketPassCardProps) {
-  const [activePassIndex, setActivePassIndex] = useState(0);
+  const isInactive = status === "used" || status === "expired";
 
-  // If no issued passes exist yet, show a fallback waiting message
-  if (!passes || passes.length === 0) {
-    return (
-      <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 text-center shadow-sm">
-        <h3 className="font-bold text-neutral-900 dark:text-white text-base">
-          {booking.event?.title || "Event Ticket"}
-        </h3>
-        <p className="text-xs text-neutral-500 mt-1">
-          Your booking is verified. Tickets are being issued.
-        </p>
-      </div>
-    );
-  }
+  const statusLabel = status === "used" ? "Used" : status === "expired" ? "Expired" : "Valid for entry";
 
-  const currentPass = passes[activePassIndex] || passes[0];
-  const qrValue = buildQRPayload(currentPass, booking.event?.title);
+  const statusChipClasses = isInactive
+    ? "bg-[#E5E7EB] dark:bg-[#262933] border border-[#D1D5DB] dark:border-[#33363F] text-[#6B7280] dark:text-[#9AA0AE]"
+    : "bg-[#F3F4F6] dark:bg-[#14151A] border border-[#E5E7EB] dark:border-[#33363F] text-[#1F2430] dark:text-[#ECEDF2]";
 
-  const downloadQR = () => {
-    const svg = document.getElementById(`qr-svg-${currentPass.id}`);
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const blobUrl = URL.createObjectURL(blob);
+  const displayPassType = passType
+    ? passType.trim().toLowerCase().endsWith("pass")
+      ? passType.trim()
+      : `${passType.trim()} Pass`
+    : "Standard Pass";
 
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width + 40;
-      canvas.height = img.height + 40;
-      if (ctx) {
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 20, 20);
-        const a = document.createElement("a");
-        a.download = `ticket-${currentPass.ticket_code}.png`;
-        a.href = canvas.toDataURL("image/png");
-        a.click();
+  const displayTicketNumber = String(ticketNumber).startsWith("#")
+    ? ticketNumber
+    : `#${ticketNumber}`;
+
+  const handleSaveTicket = async () => {
+    if (!cardRef.current || saveStatus === "saving") return;
+
+    setSaveStatus("saving");
+    setErrorMsg(null);
+
+    try {
+      // Render entire card (header, status chip, QR box, attendee line, footer) at 2x resolution
+      const blob = await toBlob(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "#1E2028" : "#FFFFFF",
+        filter: (domNode: any) => {
+          // exclude the save button action area from the saved ticket image
+          if (domNode?.classList && typeof domNode.classList.contains === "function") {
+            if (domNode.classList.contains("save-ticket-action-area")) {
+              return false;
+            }
+          }
+          return true;
+        },
+      });
+
+      if (!blob) {
+        throw new Error("Could not generate ticket image.");
       }
+
+      const cleanNum = String(ticketNumber || ticketIndex).replace(/[^a-zA-Z0-9_-]/g, "");
+      const fileName = `ticket-${cleanNum || ticketIndex}.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
+
+      // Mobile: Use Web Share API if supported
+      if (typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `${eventTitle} Ticket`,
+          });
+          setSaveStatus("saved");
+          setTimeout(() => setSaveStatus("idle"), 2500);
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === "AbortError") {
+            setSaveStatus("idle");
+            return;
+          }
+        }
+      }
+
+      // Desktop / Fallback direct download
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(blobUrl);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(blobUrl);
-    };
-    img.src = blobUrl;
+
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    } catch (err: any) {
+      console.error("Save ticket error:", err);
+      setSaveStatus("error");
+      setErrorMsg(err.message || "Failed to save ticket. Please try again.");
+      setTimeout(() => {
+        setSaveStatus("idle");
+        setErrorMsg(null);
+      }, 4000);
+    }
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-md flex flex-col">
-      
-      {/* Card Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded backdrop-blur-xs">
-            {currentPass.ticket_type || "Standard"} Pass
-          </span>
-          {booking.event?.event_number && (
-            <span className="text-xs font-bold bg-black/20 px-2 py-0.5 rounded">
-              #{booking.event.event_number}
-            </span>
-          )}
+    <div
+      ref={cardRef}
+      className="w-full max-w-[340px] mx-auto bg-white dark:bg-[#1E2028] border border-[#E5E7EB] dark:border-[#33363F] rounded-[18px] overflow-hidden flex flex-col shadow-none"
+    >
+      {/* 1. Header with Gradient */}
+      <div className="bg-[linear-gradient(135deg,#4F46E5,#9B1CF5)] text-white p-[20px_22px]">
+        <div className="flex items-center justify-between text-[13px] font-semibold text-white">
+          <span className="truncate pr-2">{displayPassType}</span>
+          <span className="shrink-0">{displayTicketNumber}</span>
         </div>
-        <h3 className="mt-2 text-lg font-black tracking-tight line-clamp-1">
-          {booking.event?.title || "Event Pass"}
-        </h3>
-        <p className="text-xs text-indigo-100 mt-0.5">
-          {booking.event?.start_date ? new Date(booking.event.start_date).toLocaleDateString() : "Date TBD"} • {booking.event?.venue_name || "Venue TBD"}
+        <h2 className="text-[28px] font-bold text-white leading-tight break-words mt-[12px] mb-[6px]">
+          {eventTitle}
+        </h2>
+        <p className="text-[14px] text-white/90 break-words leading-snug">
+          {eventDate}
+          {venue ? `, ${venue}` : ""}
         </p>
       </div>
 
-      {/* Multiple Tickets Tab Switcher (if user booked > 1 ticket) */}
-      {passes.length > 1 && (
-        <div className="p-3 bg-neutral-100 dark:bg-neutral-950/60 border-b border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-center gap-2">
-          {passes.map((pass, index) => {
-            const isSelected = index === activePassIndex;
-            return (
-              <button
-                key={pass.id}
-                onClick={() => setActivePassIndex(index)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  isSelected
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                }`}
-              >
-                <span>Pass {index + 1} of {passes.length}</span>
-                {pass.status === "used" && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-neutral-400"></span>
-                )}
-              </button>
-            );
-          })}
+      {/* 2. Body */}
+      <div className="p-[22px] flex flex-col items-center text-center">
+        {/* Status Chip */}
+        <div
+          className={`inline-flex items-center justify-center rounded-full text-[14px] font-semibold py-[6px] px-[14px] ${statusChipClasses}`}
+        >
+          {statusLabel}
         </div>
-      )}
 
-      {/* QR Code and Pass Details */}
-      <div className="p-6 flex flex-col items-center justify-center text-center">
-        
-        {/* Pass Status Banner */}
-        <div className="mb-4">
-          {currentPass.status === "used" ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-xs font-bold text-neutral-500 border border-neutral-200 dark:border-neutral-700">
-              ✓ Used / Scanned at Gate
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-bold text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/40">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-              Ready for Gate Scan (Admit 1)
-            </span>
+        {/* 200x200 QR Box */}
+        <div className="w-[200px] h-[200px] min-w-[200px] min-h-[200px] bg-white rounded-[12px] border border-[#E5E7EB] p-[10px] my-0 mt-[18px] mb-[14px] mx-auto flex items-center justify-center">
+          <div
+            style={{ opacity: isInactive ? 0.35 : 1 }}
+            className="flex items-center justify-center w-full h-full"
+          >
+            <QRCodeSVG value={qrValue} size={180} level="M" marginSize={0} />
+          </div>
+        </div>
+
+        {/* Attendee Line (No visible code line) */}
+        <p className="text-[15px] break-words text-center leading-snug">
+          <span className="text-[#6B7280] dark:text-[#9AA0AE]">Attendee: </span>
+          <strong className="font-bold text-[#1F2430] dark:text-[#ECEDF2]">
+            {attendeeName}
+          </strong>
+        </p>
+
+        {/* Save Ticket Button Area */}
+        <div className="w-full save-ticket-action-area">
+          <button
+            type="button"
+            onClick={handleSaveTicket}
+            disabled={saveStatus === "saving"}
+            className="w-full mt-[18px] py-[12px] px-4 rounded-[10px] bg-[#F3F4F6] dark:bg-[#262933] text-[#1F2430] dark:text-[#ECEDF2] font-semibold text-sm transition hover:bg-neutral-200 dark:hover:bg-[#33363F] focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
+          >
+            {saveStatus === "saving" ? "Saving..." : "Save Ticket"}
+          </button>
+
+          {saveStatus === "saved" && (
+            <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-2 text-center animate-in fade-in">
+              ✓ Ticket saved
+            </p>
+          )}
+
+          {saveStatus === "error" && errorMsg && (
+            <p className="text-xs font-medium text-red-500 mt-2 text-center animate-in fade-in">
+              {errorMsg}
+            </p>
           )}
         </div>
-
-        {/* The QR Code */}
-        <div className="p-4 bg-white rounded-2xl border-2 border-neutral-100 shadow-inner inline-block">
-          <QRCodeSVG
-            id={`qr-svg-${currentPass.id}`}
-            value={qrValue}
-            size={180}
-            level="M"
-            marginSize={2}
-          />
-        </div>
-
-        {/* Ticket Code & Attendee */}
-        <div className="mt-4">
-          <div className="font-mono text-sm font-black text-neutral-900 dark:text-white tracking-wider">
-            {currentPass.ticket_code}
-          </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Attendee: <strong className="text-neutral-800 dark:text-neutral-200">{currentPass.holder_name}</strong>
-          </p>
-        </div>
-
-        {/* Action Button */}
-        <div className="mt-5 w-full flex items-center justify-center gap-2">
-          <button
-            onClick={downloadQR}
-            className="w-full max-w-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <span>⬇️</span> Save / Download QR
-          </button>
-        </div>
-
       </div>
 
-      {/* Card Footer Tear-off Style */}
-      <div className="px-5 py-3 bg-neutral-50 dark:bg-neutral-950/80 border-t border-dashed border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400">
+      {/* 3. Footer */}
+      <div className="border-t border-[#E5E7EB] dark:border-[#33363F] p-[14px_22px] flex items-center justify-between text-[13px] text-[#6B7280] dark:text-[#9AA0AE]">
         <span>One-time entry only</span>
-        <span>Ticket {currentPass.ticket_number} of {currentPass.total_tickets}</span>
+        <span>
+          Ticket {ticketIndex} of {ticketTotal}
+        </span>
       </div>
-
     </div>
   );
 }
