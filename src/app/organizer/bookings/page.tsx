@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
+import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
 
 export default function OrganizerBookingsPage() {
   const [session, setSession] = useState<any>(null);
@@ -47,7 +48,7 @@ export default function OrganizerBookingsPage() {
         .from('bookings')
         .select(`
           *,
-          events!inner(id, title, organizer_id, event_number)
+          events!inner(id, title, organizer_id, event_number, ticket_price, ticket_types(name, price))
         `)
         .eq('events.organizer_id', session.user.id)
         .order('created_at', { ascending: false });
@@ -169,11 +170,12 @@ export default function OrganizerBookingsPage() {
         b.user_email,
         b.phone_number,
         `${b.ticket_type} (Qty: ${b.number_of_tickets})`,
+        formatRs(getBookingPrice(b).total),
         b.status
       ]);
 
       autoTable(doc, {
-        head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Status']],
+        head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Total', 'Status']],
         body: tableData,
         startY: 20,
       });
@@ -423,7 +425,7 @@ export default function OrganizerBookingsPage() {
                     <th className="px-6 py-4">Customer</th>
                     <th className="px-6 py-4">Tickets</th>
                     <th className="px-6 py-4">Payment Proof</th>
-                    <th className="px-6 py-4">Student ID</th>
+                    <th className="px-6 py-4">Total</th>
                     <th className="px-6 py-4">Status & Action</th>
                   </tr>
                 </thead>
@@ -464,13 +466,18 @@ export default function OrganizerBookingsPage() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          {booking.student_id_url ? (
-                            <a href={booking.student_id_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs font-bold">
-                              View ID ↗
-                            </a>
-                          ) : (
-                            <span className="text-xs text-neutral-400">None</span>
-                          )}
+                          {(() => {
+                            // Total amount = ticket type price × quantity
+                            const price = getBookingPrice(booking);
+                            return price.total === null ? (
+                              <span className="text-xs text-neutral-400" title="Ticket type not found in this event's current ticket types">—</span>
+                            ) : (
+                              <div>
+                                <div className="text-sm font-black text-neutral-900 dark:text-white">{formatRs(price.total)}</div>
+                                <div className="text-[11px] text-neutral-500">{price.quantity} × {formatRs(price.unitPrice)}</div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-2 items-start">
