@@ -70,6 +70,32 @@ async function findCapacityProblem(supabase: SupabaseClient, booking: BookingLik
 }
 
 /**
+ * If a booking somehow got more than one ticket with the same pass number (two people verifying
+ * at the same moment, on a database without a uniqueness rule), keep the earliest ticket for each
+ * pass number and delete the extras. Every caller keeps the same ticket, so it is safe to run twice.
+ */
+async function removeDuplicateTickets(supabase: SupabaseClient, bookingId: string): Promise<void> {
+  const { data: rows } = await supabase
+    .from("issued_tickets")
+    .select("id, ticket_number, created_at")
+    .eq("booking_id", bookingId);
+  if (!rows || rows.length < 2) return;
+
+  const sorted = [...rows].sort((a: { created_at?: string; id: string }, b: { created_at?: string; id: string }) =>
+    String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.id.localeCompare(b.id)
+  );
+  const seen = new Set<number>();
+  const extras: string[] = [];
+  for (const r of sorted as Array<{ id: string; ticket_number: number }>) {
+    if (seen.has(r.ticket_number)) extras.push(r.id);
+    else seen.add(r.ticket_number);
+  }
+  if (extras.length > 0) {
+    await supabase.from("issued_tickets").delete().in("id", extras);
+  }
+}
+
+/**
  * Verifies a booking safely:
  *  1. Warns (and asks) if it would exceed capacity.
  *  2. Marks the booking verified and confirms the database accepted the change.
@@ -101,9 +127,19 @@ export async function verifyBooking(
 
     try {
       await generateTicketsForBooking(supabase, booking as Parameters<typeof generateTicketsForBooking>[1]);
+      // If two people verified this booking at the same moment, remove any duplicate tickets
+      await removeDuplicateTickets(supabase, booking.id);
       // Re-activate tickets if this booking was previously rejected and its tickets were cancelled
       await supabase.from("issued_tickets").update({ status: "valid" }).eq("booking_id", booking.id).eq("status", "cancelled");
     } catch (genErr: unknown) {
+      // The other verify (e.g. admin + organizer clicking at the same moment) may have created the
+      // tickets already - in that case this is a success, not a failure. Keep the booking verified.
+      const qty = Math.max(1, Number(booking.number_of_tickets) || 1);
+      const { data: existing } = await supabase.from("issued_tickets").select("id").eq("booking_id", booking.id);
+      if (existing && existing.length >= qty) {
+        await removeDuplicateTickets(supabase, booking.id);
+        return { ok: true };
+      }
       await supabase.from("bookings").update({ status: previousStatus }).eq("id", booking.id);
       const msg = genErr instanceof Error ? genErr.message : String((genErr as { message?: string })?.message || genErr);
       return {
