@@ -17,7 +17,9 @@ export default function OrganizerBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // Holds the selected event's ID ("All" = every event). IDs are unique, titles may not be.
   const [eventFilter, setEventFilter] = useState("All");
+  const eventFilterLabel = () => (eventFilter === "All" ? "All" : (eventsList.find(e => e.id === eventFilter)?.title || "Event"));
   const [eventsList, setEventsList] = useState<any[]>([]);
 
   // Attendance State
@@ -162,7 +164,7 @@ export default function OrganizerBookingsPage() {
     try {
       await new Promise(r => setTimeout(r, 60));
       const doc = new jsPDF();
-      doc.text(`Bookings - ${eventFilter}`, 14, 15);
+      doc.text(`Bookings - ${eventFilterLabel()}`, 14, 15);
       
       const tableData = filteredBookings.map(b => [
         b.events?.title || "Unknown",
@@ -180,7 +182,7 @@ export default function OrganizerBookingsPage() {
         startY: 20,
       });
 
-      doc.save(`bookings_${eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+      doc.save(`bookings_${eventFilterLabel().replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
     } catch (err) {
       console.error("Failed to generate bookings PDF:", err);
       alert("Failed to generate bookings PDF.");
@@ -201,7 +203,7 @@ export default function OrganizerBookingsPage() {
     try {
       setReceiptsDownloadProgress(`Downloading 1 of ${verified.length}...`);
       const doc = new jsPDF();
-      doc.text(`Verified Receipts - ${eventFilter}`, 14, 15);
+      doc.text(`Verified Receipts - ${eventFilterLabel()}`, 14, 15);
       let yPos = 25;
 
       for (let i = 0; i < verified.length; i++) {
@@ -257,7 +259,7 @@ export default function OrganizerBookingsPage() {
         yPos += 5; 
       }
 
-      doc.save(`verified_receipts_${eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+      doc.save(`verified_receipts_${eventFilterLabel().replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
     } catch (err) {
       console.error("Error creating receipts PDF:", err);
       alert("An error occurred while generating receipts PDF.");
@@ -274,7 +276,7 @@ export default function OrganizerBookingsPage() {
       b.user_email?.toLowerCase().includes(search.toLowerCase()) ||
       b.events?.title?.toLowerCase().includes(search.toLowerCase()) ||
       b.phone_number?.includes(search);
-    const matchesEvent = eventFilter === "All" || b.events?.title === eventFilter;
+    const matchesEvent = eventFilter === "All" || b.event_id === eventFilter;
     return matchesSearch && matchesEvent;
   });
 
@@ -284,13 +286,13 @@ export default function OrganizerBookingsPage() {
       t.holder_email?.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
       t.ticket_code?.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
       t.events?.title?.toLowerCase().includes(attendanceSearch.toLowerCase());
-    const matchesEvent = eventFilter === "All" || t.events?.title === eventFilter;
+    const matchesEvent = eventFilter === "All" || t.event_id === eventFilter;
     const matchesStatus = attendanceStatusFilter === "All" || t.status === attendanceStatusFilter;
     return matchesSearch && matchesEvent && matchesStatus;
   });
 
   // Target event for fixed scanner if a specific event is chosen
-  const activeEventObj = eventsList.find(e => e.title === eventFilter);
+  const activeEventObj = eventsList.find(e => e.id === eventFilter);
 
   // Attendance metrics
   const totalTicketsIssued = issuedTickets.length;
@@ -381,7 +383,7 @@ export default function OrganizerBookingsPage() {
                 >
                   <option value="All">All Events</option>
                   {eventsList.map((evt, i) => (
-                    <option key={i} value={evt.title}>{evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}</option>
+                    <option key={evt.id || i} value={evt.id}>{evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}</option>
                   ))}
                 </select>
               </div>
