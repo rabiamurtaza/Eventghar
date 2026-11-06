@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { generateTicketsForBooking } from "@/utils/ticketService";
+import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
 
 export default function AdminBookingsPage() {
@@ -132,35 +132,39 @@ export default function AdminBookingsPage() {
     setAttendanceLoading(false);
   }
 
-  const updateStatus = async (id: string, newStatus: string) => {
+  const inFlightRef = useRef<Set<string>>(new Set());
+
+  const updateStatus = async (id: string, newStatus: 'verified' | 'rejected') => {
+    // Ignore double-clicks while this booking is already being processed
+    if (inFlightRef.current.has(id)) return;
+    const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+
+    if (newStatus === 'rejected' && (booking.status === 'verified' || booking.status === 'confirmed')) {
+      const ok = window.confirm(`Reject this verified booking for ${booking.full_name || 'this customer'}? Their QR tickets will be cancelled and will no longer work at the gate.`);
+      if (!ok) return;
+    }
+
+    inFlightRef.current.add(id);
     setActionLoading(id);
     const supabase = createClient();
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: newStatus })
-      .eq('id', id);
 
-    if (!error) {
+    const result = newStatus === 'verified'
+      ? await verifyBooking(supabase, booking, (msg) => window.confirm(msg))
+      : await rejectBooking(supabase, booking);
+
+    if (result.ok) {
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
       if (previewImage && previewImage.bookingId === id) {
         setPreviewImage(prev => prev ? { ...prev, currentStatus: newStatus } : null);
       }
-
-      // If verified, generate individual issued_tickets automatically!
-      if (newStatus === 'verified') {
-        const booking = bookings.find(b => b.id === id);
-        if (booking) {
-          try {
-            await generateTicketsForBooking(supabase, booking);
-            fetchIssuedTickets();
-          } catch (e: any) {
-            console.error("Error generating tickets upon verification:", e);
-          }
-        }
-      }
+      if (result.warning) alert(result.warning);
+      fetchIssuedTickets();
     } else {
-      alert("Failed to update status: " + error.message);
+      alert(result.error);
     }
+
+    inFlightRef.current.delete(id);
     setActionLoading(null);
   };
 

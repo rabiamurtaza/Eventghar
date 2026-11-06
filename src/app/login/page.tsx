@@ -10,6 +10,9 @@ function LoginForm() {
   const supabase = createClient();
 
   const redirectUrl = searchParams.get("redirect") || "/my-account";
+  // Messages passed in the URL (e.g. failed sign-in, or session expired due to inactivity)
+  const errorText = searchParams.get("error");
+  const infoText = searchParams.get("message");
 
   const handleGoogleLogin = async () => {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
@@ -36,7 +39,18 @@ function LoginForm() {
             Log in to your Event Ghar account securely with Google
           </p>
         </div>
-        
+
+        {errorText && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {errorText}. Please try again.
+          </div>
+        )}
+        {infoText && !errorText && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            {infoText}
+          </div>
+        )}
+
         <div className="mt-8 space-y-6">
           <button 
             onClick={handleGoogleLogin}

@@ -14,8 +14,25 @@ export default function SessionTimeout() {
     let currentTimeoutDuration = 15 * 60 * 1000; // Default to 15 mins
     let cleanupListeners: (() => void) | null = null;
 
+    // Last activity is shared across ALL open tabs, so an idle tab never logs out
+    // a user who is active in another tab.
+    const ACTIVITY_KEY = "eg_last_activity";
+    const markActivity = () => {
+      try { localStorage.setItem(ACTIVITY_KEY, String(Date.now())); } catch {}
+    };
+    const lastActivity = () => {
+      try { return Number(localStorage.getItem(ACTIVITY_KEY)) || 0; } catch { return 0; }
+    };
+
     const logout = async () => {
       if (!isActive) return;
+      const idleFor = Date.now() - lastActivity();
+      if (idleFor < currentTimeoutDuration) {
+        // Activity happened in another tab - wait for the remaining time instead
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(logout, currentTimeoutDuration - idleFor);
+        return;
+      }
       await supabase.auth.signOut();
       router.push("/login?message=Session expired due to inactivity");
       router.refresh();
@@ -50,11 +67,13 @@ export default function SessionTimeout() {
 
       if (!isActive) return;
 
-      // 45 minutes for admin, 15 minutes for users and organizers
-      currentTimeoutDuration = role === 'admin' 
-        ? 45 * 60 * 1000 
+      // 3 hours for admins and organizers (gate staff scan for long periods without
+      // touching the screen), 15 minutes for regular users
+      currentTimeoutDuration = role === 'admin' || role === 'organizer'
+        ? 3 * 60 * 60 * 1000
         : 15 * 60 * 1000;
 
+      markActivity();
       resetTimer();
 
       // Clean up previous listeners before attaching new ones
@@ -64,6 +83,7 @@ export default function SessionTimeout() {
       let throttled = false;
       const handleActivity = () => {
         if (!throttled) {
+          markActivity();
           resetTimer();
           throttled = true;
           setTimeout(() => { throttled = false; }, 1000);

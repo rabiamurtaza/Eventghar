@@ -78,7 +78,7 @@ function getLowestPriceDisplay(event: any): string {
         : event.ticket_price;
       if (Array.isArray(parsed) && parsed.length > 0) {
         const valid = parsed
-          .map((t: any) => parseInt(t.price, 10))
+          .map((t: any) => parseFloat(String(t.price ?? '').replace(/,/g, '')))
           .filter((p: number) => !isNaN(p));
         if (valid.length > 0) {
           const min = Math.min(...valid);

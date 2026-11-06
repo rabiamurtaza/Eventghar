@@ -110,12 +110,13 @@ export default function EventsSection() {
     try {
       const parsed = typeof item === 'string' ? JSON.parse(item) : item;
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const validPrices = parsed.map((t: any) => parseInt(t.price, 10)).filter((p: number) => !isNaN(p));
+        const validPrices = parsed.map((t: any) => parseFloat(String(t.price ?? '').replace(/,/g, ''))).filter((p: number) => !isNaN(p));
         if (validPrices.length > 0) {
           const minPrice = Math.min(...validPrices);
           return minPrice === 0 ? "Free" : `From Rs. ${minPrice.toLocaleString()}`;
         }
-        return parsed[0].price === "Free" || parsed[0].price === "0" ? "Free" : `Rs. ${parsed[0].price}`;
+        // No numeric price on any tier (blank / "Free") -> treat as free
+        return "Free";
       }
     } catch(e) {}
     const num = Number(item);

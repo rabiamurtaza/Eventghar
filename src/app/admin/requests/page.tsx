@@ -53,12 +53,18 @@ export default function AdminEventRequestsPage() {
       });
 
       if (rpcErr) {
-        await supabase.from('organizers').upsert({
+        const { error: insErr } = await supabase.from('organizers').upsert({
           id: req.user_id,
           full_name: req.organizer_name || 'Organizer',
           email: req.organizer_contact || ''
         });
-        await supabase.from('users').delete().eq('id', req.user_id);
+        if (insErr) {
+          throw new Error(`${rpcErr.message} / ${insErr.message}`);
+        }
+        const { error: delErr } = await supabase.from('users').delete().eq('id', req.user_id);
+        if (delErr) {
+          throw new Error(`Organizer created, but could not remove the user record: ${delErr.message}`);
+        }
       }
 
       setOrganizerIds(prev => [...prev, req.user_id]);

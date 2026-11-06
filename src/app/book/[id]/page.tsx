@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
@@ -122,6 +122,7 @@ export default function BookTicketPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
+  const eventIdRef = useRef<string | null>(null);
 
   const handleCopyAccount = (textToCopy: string, index: number) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -191,8 +192,9 @@ export default function BookTicketPage() {
         query = query.eq('id', id);
       }
       const { data: eventData } = await query.maybeSingle();
-      
+
       if (eventData) {
+        eventIdRef.current = eventData.id;
         setEvent(eventData);
 
         // Fetch active bookings for capacity & tier inventory tracking
@@ -264,11 +266,12 @@ export default function BookTicketPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "bookings" },
         async () => {
-          if (!event?.id) return;
+          const currentEventId = eventIdRef.current;
+          if (!currentEventId) return;
           const { data: bData } = await supabase
             .from('bookings')
             .select('ticket_type, number_of_tickets, status')
-            .eq('event_id', event.id)
+            .eq('event_id', currentEventId)
             .in('status', ['verified', 'confirmed', 'pending']);
           if (bData) {
             let total = 0;
@@ -287,8 +290,31 @@ export default function BookTicketPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
-        () => {
-          init();
+        async (payload: any) => {
+          // Only refresh when THIS event changed, and never reset what the user has typed/selected
+          const currentEventId = eventIdRef.current;
+          const changedId = payload?.new?.id || payload?.old?.id;
+          if (!currentEventId || changedId !== currentEventId) return;
+
+          const { data: fresh } = await supabase.from('events').select('*').eq('id', currentEventId).maybeSingle();
+          if (!fresh) return;
+          setEvent(fresh);
+
+          if (fresh.ticket_price) {
+            try {
+              const parsed = typeof fresh.ticket_price === 'string' ? JSON.parse(fresh.ticket_price) : fresh.ticket_price;
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setTicketOptions(parsed);
+                setTicketType(prev => parsed.some((t: any) => t.name === prev) ? prev : parsed[0].name);
+              }
+            } catch (e) {}
+          }
+          if (fresh.payment_accounts) {
+            try {
+              const parsed = typeof fresh.payment_accounts === 'string' ? JSON.parse(fresh.payment_accounts) : fresh.payment_accounts;
+              if (Array.isArray(parsed)) setPaymentAccounts(parsed);
+            } catch (e) {}
+          }
         }
       )
       .subscribe();
@@ -332,7 +358,7 @@ export default function BookTicketPage() {
       window.removeEventListener("focus", handleProfileSync);
       document.removeEventListener("visibilitychange", handleProfileSync);
     };
-  }, [id, router, supabase, event?.id]);
+  }, [id, router, supabase]);
 
   // Compute event lifecycle & remaining inventory
   const lifecycle = getEventLifecycle(event, totalBooked);
@@ -412,17 +438,14 @@ export default function BookTicketPage() {
       return;
     }
 
-    if (!paymentScreenshot) {
-      setErrorMsg("Payment screenshot is required.");
-      setSubmitting(false);
-      return;
-    }
-
-    const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
-    if (paymentErr) {
-      setErrorMsg(paymentErr);
-      setSubmitting(false);
-      return;
+    // Payment is handled privately by the team, so the screenshot is optional.
+    if (paymentScreenshot) {
+      const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
+      if (paymentErr) {
+        setErrorMsg(paymentErr);
+        setSubmitting(false);
+        return;
+      }
     }
 
     const supabase = createClient();
@@ -463,13 +486,15 @@ export default function BookTicketPage() {
     let studentIdUrl = null;
 
     try {
-      // Upload Payment Screenshot
-      const pExt = paymentScreenshot.name.split('.').pop();
-      const pName = `payment-${Date.now()}-${Math.random().toString(36).substring(2)}.${pExt}`;
-      const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, paymentScreenshot);
-      if (pError) throw pError;
-      const { data: pData } = supabase.storage.from('payment-screenshots').getPublicUrl(pName);
-      paymentScreenshotUrl = pData.publicUrl;
+      // Upload Payment Screenshot (only if the user attached one)
+      if (paymentScreenshot) {
+        const pExt = paymentScreenshot.name.split('.').pop();
+        const pName = `payment-${Date.now()}-${Math.random().toString(36).substring(2)}.${pExt}`;
+        const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, paymentScreenshot);
+        if (pError) throw pError;
+        const { data: pData } = supabase.storage.from('payment-screenshots').getPublicUrl(pName);
+        paymentScreenshotUrl = pData.publicUrl;
+      }
 
       const payload = {
         event_id: event.id,
@@ -578,7 +603,7 @@ export default function BookTicketPage() {
           </div>
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4">Thank you for your booking request!</h2>
           <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-            Your payment is currently being processed by the organizer. Once confirmed, your ticket and QR code will appear directly under My Account in &quot;My Tickets&quot;. You can present your digital pass at the entrance on the day of the event.
+            Your booking request has been received and is being reviewed by the organizer. Once confirmed, your ticket and QR code will appear directly under My Account in &quot;My Tickets&quot;. You can present your digital pass at the entrance on the day of the event.
           </p>
           <Link href="/" className="inline-block w-full rounded-xl bg-green-500 px-6 py-3 font-bold text-white transition hover:bg-green-600 shadow-lg shadow-green-500/30">
             Back to Home
@@ -589,8 +614,11 @@ export default function BookTicketPage() {
   }
 
   // Determine selected ticket price
-  const pricePerTicket = selectedTicket ? parseInt(selectedTicket.price || '0', 10) : 0;
+  const parsePrice = (p: unknown) => parseFloat(String(p ?? '0').replace(/,/g, ''));
+  const pricePerTicket = selectedTicket ? parsePrice(selectedTicket.price) : 0;
   const totalPrice = isNaN(pricePerTicket) ? 0 : pricePerTicket * numberOfTickets;
+  // Free event = no tiers, or every tier priced 0 / blank. Payment UI is hidden for free events.
+  const isFreeEvent = ticketOptions.length === 0 || ticketOptions.every((t: any) => !(parsePrice(t.price) > 0));
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 px-4 py-12 sm:px-6 lg:px-8">
@@ -630,6 +658,7 @@ export default function BookTicketPage() {
             <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
           </div>
 
+          {!isFreeEvent && (
           <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mb-3">Payment Instructions</h3>
             {event.payment_instructions && (
@@ -685,6 +714,7 @@ export default function BookTicketPage() {
               )}
             </div>
           </div>
+          )}
         </div>
 
         {/* Right Side: Booking Form */}
@@ -768,7 +798,7 @@ export default function BookTicketPage() {
                     const isTierSoldOut = tLeft !== null && tLeft <= 0;
                     return (
                       <option key={i} value={t.name} disabled={isTierSoldOut}>
-                        {t.name} (Rs. {t.price}) {tLeft !== null ? (isTierSoldOut ? '— Sold Out' : `• ${tLeft} left`) : ''}
+                        {t.name} ({parseFloat(String(t.price ?? '0').replace(/,/g, '')) > 0 ? `Rs. ${t.price}` : 'Free'}) {tLeft !== null ? (isTierSoldOut ? '— Sold Out' : `• ${tLeft} left`) : ''}
                       </option>
                     );
                   })}
@@ -836,6 +866,15 @@ export default function BookTicketPage() {
               </div>
             </div>
 
+            {isFreeEvent ? (
+            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-bold text-neutral-900 dark:text-white text-lg">Price:</span>
+                <span className="font-bold text-green-500 text-xl">Free</span>
+              </div>
+            </div>
+            ) : (
+            <>
             <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-neutral-900 dark:text-white text-lg">Total to Pay:</span>
@@ -845,11 +884,10 @@ export default function BookTicketPage() {
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
               <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                Upload Payment Screenshot *
+                Upload Payment Screenshot <span className="font-normal text-neutral-500">(optional)</span>
               </label>
-              <input 
-                type="file" 
-                required 
+              <input
+                type="file"
                 accept="image/png, image/jpeg, image/jpg, image/webp" 
                 onChange={e => {
                   const file = e.target.files?.[0] || null;
@@ -865,9 +903,11 @@ export default function BookTicketPage() {
                   }
                   setPaymentScreenshot(file);
                 }} 
-                className="w-full text-sm text-neutral-900 dark:text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 dark:file:bg-green-900/30 dark:file:text-green-400" 
+                className="w-full text-sm text-neutral-900 dark:text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 dark:file:bg-green-900/30 dark:file:text-green-400"
               />
             </div>
+            </>
+            )}
 
             <button type="submit" disabled={submitting} className="mt-4 w-full rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer">
               {submitting ? "Submitting Request..." : "Request Review / Submit"}

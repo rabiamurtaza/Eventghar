@@ -38,7 +38,7 @@ export default function Home() {
                   Choose an event
                 </h3>
                 <p className="text-sm text-gray-600 font-sans leading-relaxed">
-                  Open any event to see the date, place and price. Log in with your email when you’re ready to book.
+                  Open any event to see the date, place and price. Log in with your Google account when you’re ready to book.
                 </p>
               </div>
             </div>
