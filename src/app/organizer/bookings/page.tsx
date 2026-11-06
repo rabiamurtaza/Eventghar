@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
+import TicketsOverview from "@/components/TicketsOverview";
 
 export default function OrganizerBookingsPage() {
   const [session, setSession] = useState<any>(null);
@@ -53,7 +54,7 @@ export default function OrganizerBookingsPage() {
 
       const eventsQuery = supabase
         .from('events')
-        .select('id, title, organizer_id, event_number')
+        .select('id, title, organizer_id, event_number, total_tickets, ticket_price, ticket_types(name, total_available)')
         .eq('organizer_id', session.user.id)
         .eq('status', 'published');
 
@@ -359,6 +360,9 @@ export default function OrganizerBookingsPage() {
         {/* VIEW 1: BOOKINGS & PAYMENTS */}
         {activeMainTab === "bookings" && (
           <>
+            {/* Capacity vs booked tickets for this organizer's own events only */}
+            <TicketsOverview events={eventsList} bookings={bookings} title="My Events - Tickets Overview" />
+
             <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
               <div className="flex flex-col sm:flex-row gap-4">
                 <input 

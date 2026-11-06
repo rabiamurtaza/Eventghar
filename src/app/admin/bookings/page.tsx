@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
+import TicketsOverview from "@/components/TicketsOverview";
 
 export default function AdminBookingsPage() {
   // Main View Switcher
@@ -60,7 +61,7 @@ export default function AdminBookingsPage() {
           .order('created_at', { ascending: false }),
         supabase
           .from('events')
-          .select('id, title, event_number')
+          .select('id, title, event_number, total_tickets, ticket_price, ticket_types(name, total_available)')
           .order('title', { ascending: true }),
         supabase
           .from('issued_tickets')
@@ -305,10 +306,19 @@ export default function AdminBookingsPage() {
   });
 
   // Calculate summary counts
+  // Booking counts (number of booking requests) and ticket counts (sum of tickets in those bookings)
+  const ticketsIn = (list: any[]) => list.reduce((sum, b) => sum + Math.max(1, Number(b.number_of_tickets) || 1), 0);
+  const pendingList = bookings.filter(b => b.status === 'pending');
+  const verifiedList = bookings.filter(b => b.status === 'verified' || b.status === 'confirmed');
+  const rejectedList = bookings.filter(b => b.status === 'rejected');
   const totalCount = bookings.length;
-  const pendingCount = bookings.filter(b => b.status === 'pending').length;
-  const verifiedCount = bookings.filter(b => b.status === 'verified' || b.status === 'confirmed').length;
-  const rejectedCount = bookings.filter(b => b.status === 'rejected').length;
+  const pendingCount = pendingList.length;
+  const verifiedCount = verifiedList.length;
+  const rejectedCount = rejectedList.length;
+  const totalTickets = ticketsIn(bookings);
+  const pendingTickets = ticketsIn(pendingList);
+  const verifiedTickets = ticketsIn(verifiedList);
+  const rejectedTickets = ticketsIn(rejectedList);
 
   // Attendance counts
   const totalTicketsIssued = issuedTickets.length;
@@ -422,8 +432,9 @@ export default function AdminBookingsPage() {
                   : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300"
               }`}
             >
-              <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Total Bookings</div>
-              <div className="text-2xl font-black text-neutral-900 dark:text-white mt-1">{totalCount}</div>
+              <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Total Tickets</div>
+              <div className="text-2xl font-black text-neutral-900 dark:text-white mt-1">{totalTickets}</div>
+              <div className="text-[11px] text-neutral-500 mt-0.5">{totalCount} booking(s)</div>
             </button>
 
             <button
@@ -435,12 +446,13 @@ export default function AdminBookingsPage() {
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Pending</span>
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Pending Tickets</span>
                 {pendingCount > 0 && (
                   <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
                 )}
               </div>
-              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{pendingCount}</div>
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{pendingTickets}</div>
+              <div className="text-[11px] text-neutral-500 mt-0.5">{pendingCount} booking(s)</div>
             </button>
 
             <button
@@ -451,8 +463,9 @@ export default function AdminBookingsPage() {
                   : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300"
               }`}
             >
-              <div className="text-xs font-semibold text-green-600 dark:text-green-400">Verified</div>
-              <div className="text-2xl font-black text-green-600 dark:text-green-400 mt-1">{verifiedCount}</div>
+              <div className="text-xs font-semibold text-green-600 dark:text-green-400">Verified Tickets</div>
+              <div className="text-2xl font-black text-green-600 dark:text-green-400 mt-1">{verifiedTickets}</div>
+              <div className="text-[11px] text-neutral-500 mt-0.5">{verifiedCount} booking(s)</div>
             </button>
 
             <button
@@ -463,10 +476,15 @@ export default function AdminBookingsPage() {
                   : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 hover:border-neutral-300"
               }`}
             >
-              <div className="text-xs font-semibold text-red-600 dark:text-red-400">Rejected</div>
-              <div className="text-2xl font-black text-red-600 dark:text-red-400 mt-1">{rejectedCount}</div>
+              <div className="text-xs font-semibold text-red-600 dark:text-red-400">Rejected Tickets</div>
+              <div className="text-2xl font-black text-red-600 dark:text-red-400 mt-1">{rejectedTickets}</div>
+              <div className="text-[11px] text-neutral-500 mt-0.5">{rejectedCount} booking(s)</div>
             </button>
           </div>
+
+          {/* Capacity vs booked tickets, per event and per ticket type */}
+          <TicketsOverview events={eventsList} bookings={bookings} />
+
 
           {/* Filter and Search Bar */}
           <div className="mb-6 flex flex-col md:flex-row gap-3">

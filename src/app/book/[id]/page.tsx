@@ -798,7 +798,7 @@ export default function BookTicketPage() {
                     const isTierSoldOut = tLeft !== null && tLeft <= 0;
                     return (
                       <option key={i} value={t.name} disabled={isTierSoldOut}>
-                        {t.name} ({parseFloat(String(t.price ?? '0').replace(/,/g, '')) > 0 ? `Rs. ${t.price}` : 'Free'}) {tLeft !== null ? (isTierSoldOut ? '— Sold Out' : `• ${tLeft} left`) : ''}
+                        {t.name} ({parseFloat(String(t.price ?? '0').replace(/,/g, '')) > 0 ? `Rs. ${t.price}` : 'Free'}) {isTierSoldOut ? '— Sold Out' : ''}
                       </option>
                     );
                   })}
@@ -850,13 +850,8 @@ export default function BookTicketPage() {
                   </div>
                 </div>
 
-                {/* Low ticket inventory alert */}
-                {maxAllowedTickets <= 12 && maxAllowedTickets > 0 && (
-                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
-                    <span>⚠️</span>
-                    <span>Only {maxAllowedTickets} {maxAllowedTickets === 1 ? "ticket" : "tickets"} left</span>
-                  </p>
-                )}
+                {/* "N tickets left" is hidden: buyers can only see their own bookings, so the
+                    number would be inaccurate. Admin/organizer pages show the real count. */}
                 {maxAllowedTickets <= 0 && (
                   <p className="text-xs font-semibold text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
                     <span>⚠️</span>
