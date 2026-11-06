@@ -192,7 +192,7 @@ export default function PublishedEventsPage() {
                     <div className="mb-4 rounded-lg bg-neutral-50 dark:bg-neutral-800/60 p-2.5 border border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
                       <span className="text-neutral-500 dark:text-neutral-400 font-medium">Ticket Sales</span>
                       <span className={`font-bold ${bookedCount >= totalCap ? "text-amber-600 dark:text-amber-400" : "text-neutral-900 dark:text-white"}`}>
-                        {bookedCount} / {totalCap} sold {bookedCount >= totalCap ? "(Sold Out)" : `(${totalCap - bookedCount} left)`}
+                        {bookedCount} / {totalCap} booked (incl. pending) {bookedCount >= totalCap ? "(Full)" : `(${totalCap - bookedCount} left)`}
                       </span>
                     </div>
                   ) : (

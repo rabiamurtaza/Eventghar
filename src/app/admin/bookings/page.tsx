@@ -20,7 +20,9 @@ export default function AdminBookingsPage() {
   
   // Bookings Filters
   const [search, setSearch] = useState("");
+  // Holds the selected event's ID ("All" = every event). IDs are unique, titles may not be.
   const [eventFilter, setEventFilter] = useState("All");
+  const eventFilterLabel = () => (eventFilter === "All" ? "All" : (eventsList.find(e => e.id === eventFilter)?.title || "Event"));
   const [statusFilter, setStatusFilter] = useState<"All" | "pending" | "verified" | "rejected">("All");
 
   // Attendance State
@@ -179,7 +181,7 @@ export default function AdminBookingsPage() {
     try {
       await new Promise(r => setTimeout(r, 60));
       const doc = new jsPDF();
-      doc.text(`Bookings Summary - ${eventFilter} (${statusFilter} Status)`, 14, 15);
+      doc.text(`Bookings Summary - ${eventFilterLabel()} (${statusFilter} Status)`, 14, 15);
       
       const tableData = filteredBookings.map(b => [
         b.events ? `${b.events.event_number ? `#${b.events.event_number} - ` : ''}${b.events.title}` : "Unknown",
@@ -197,7 +199,7 @@ export default function AdminBookingsPage() {
         startY: 22,
       });
 
-      const safeEventName = eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const safeEventName = eventFilterLabel().replace(/[^a-z0-9]/gi, '_').toLowerCase();
       doc.save(`admin_bookings_${safeEventName}.pdf`);
     } catch (err) {
       console.error("Failed to generate bookings PDF:", err);
@@ -219,7 +221,7 @@ export default function AdminBookingsPage() {
     try {
       setReceiptsDownloadProgress(`Downloading 1 of ${verified.length}...`);
       const doc = new jsPDF();
-      doc.text(`Verified Receipts - ${eventFilter}`, 14, 15);
+      doc.text(`Verified Receipts - ${eventFilterLabel()}`, 14, 15);
       let yPos = 25;
 
       for (let i = 0; i < verified.length; i++) {
@@ -275,7 +277,7 @@ export default function AdminBookingsPage() {
         yPos += 4; 
       }
 
-      const safeEventName = eventFilter.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const safeEventName = eventFilterLabel().replace(/[^a-z0-9]/gi, '_').toLowerCase();
       doc.save(`verified_receipts_${safeEventName}.pdf`);
     } catch (err) {
       console.error("Error creating receipts PDF:", err);
@@ -291,7 +293,7 @@ export default function AdminBookingsPage() {
       b.user_email?.toLowerCase().includes(search.toLowerCase()) ||
       b.events?.title?.toLowerCase().includes(search.toLowerCase()) ||
       b.phone_number?.includes(search);
-    const matchesEvent = eventFilter === "All" || b.events?.title === eventFilter;
+    const matchesEvent = eventFilter === "All" || b.event_id === eventFilter;
     const matchesStatus = statusFilter === "All" || 
       (statusFilter === "verified" ? (b.status === "verified" || b.status === "confirmed") : b.status === statusFilter);
     return matchesSearch && matchesEvent && matchesStatus;
@@ -304,7 +306,7 @@ export default function AdminBookingsPage() {
       t.holder_email?.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
       t.ticket_code?.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
       t.events?.title?.toLowerCase().includes(attendanceSearch.toLowerCase());
-    const matchesEvent = attendanceEventFilter === "All" || t.events?.title === attendanceEventFilter;
+    const matchesEvent = attendanceEventFilter === "All" || t.event_id === attendanceEventFilter;
     const matchesStatus = attendanceStatusFilter === "All" || t.status === attendanceStatusFilter;
     return matchesSearch && matchesEvent && matchesStatus;
   });
@@ -517,7 +519,7 @@ export default function AdminBookingsPage() {
             >
               <option value="All">All Events</option>
               {eventsList.map((evt) => (
-                <option key={evt.id} value={evt.title}>
+                <option key={evt.id} value={evt.id}>
                   {evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}
                 </option>
               ))}
@@ -764,7 +766,7 @@ export default function AdminBookingsPage() {
             >
               <option value="All">All Events</option>
               {eventsList.map((evt) => (
-                <option key={evt.id} value={evt.title}>
+                <option key={evt.id} value={evt.id}>
                   {evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}
                 </option>
               ))}

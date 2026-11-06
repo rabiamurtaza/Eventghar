@@ -103,6 +103,8 @@ export default function BookTicketPage() {
 
   // Inventory & Capacity state
   const [totalBooked, setTotalBooked] = useState(0);
+  // Tickets this buyer has already booked for this event (pending + verified), for the per-person limit
+  const [ownBookedCount, setOwnBookedCount] = useState(0);
   const [tierBookings, setTierBookings] = useState<Record<string, number>>({});
 
   // Form State
@@ -216,6 +218,17 @@ export default function BookTicketPage() {
         }
         setTotalBooked(total);
         setTierBookings(byTier);
+
+        // This buyer's own active bookings for the event (always filtered by their email)
+        if (session.user.email) {
+          const { data: ownData } = await supabase
+            .from('bookings')
+            .select('number_of_tickets')
+            .eq('event_id', eventData.id)
+            .eq('user_email', session.user.email)
+            .in('status', ['verified', 'confirmed', 'pending']);
+          setOwnBookedCount((ownData || []).reduce((s: number, b: any) => s + (Number(b.number_of_tickets) || 1), 0));
+        }
 
         let tiers: any[] = [];
         if (eventData.ticket_price) {
@@ -369,10 +382,15 @@ export default function BookTicketPage() {
   const tierBookedCount = tierBookings[ticketType] || 0;
   const tierRemaining = selectedTierLimit !== null ? Math.max(0, selectedTierLimit - tierBookedCount) : null;
 
-  // Maximum allowed is the number of tickets still available (stock) with no artificial cap
+  // "Max Tickets Per Person" set by the admin, minus what this buyer already booked for this event
+  const perPersonLimit = Number(event?.max_tickets_per_person) > 0 ? Number(event.max_tickets_per_person) : null;
+  const perPersonRemaining = perPersonLimit !== null ? Math.max(0, perPersonLimit - ownBookedCount) : null;
+
+  // Maximum allowed = remaining stock, also capped by the per-person limit
   const availableStock = Math.min(
     overallRemaining !== null ? overallRemaining : Infinity,
-    tierRemaining !== null ? tierRemaining : Infinity
+    tierRemaining !== null ? tierRemaining : Infinity,
+    perPersonRemaining !== null ? perPersonRemaining : Infinity
   );
 
   const maxAllowedTickets = isFinite(availableStock) ? Math.max(0, availableStock) : 999;
@@ -415,6 +433,16 @@ export default function BookTicketPage() {
 
     if (overallRemaining !== null && qty > overallRemaining) {
       setErrorMsg(`Cannot book ${qty} ticket(s). Only ${overallRemaining} ticket(s) are remaining for this event.`);
+      setSubmitting(false);
+      return;
+    }
+
+    if (perPersonLimit !== null && perPersonRemaining !== null && qty > perPersonRemaining) {
+      setErrorMsg(
+        perPersonRemaining <= 0
+          ? `You have already booked the maximum of ${perPersonLimit} ticket(s) per person for this event.`
+          : `Each person can book up to ${perPersonLimit} ticket(s) for this event. You can book ${perPersonRemaining} more.`
+      );
       setSubmitting(false);
       return;
     }
@@ -517,13 +545,14 @@ export default function BookTicketPage() {
 
       // Update phone_number and full_name in appropriate profile without overwriting organizer role
       try {
-        const { data: orgCheck } = await supabase
-          .from('organizers')
-          .select('id')
-          .eq('id', session.user.id)
-          .maybeSingle();
+        const [{ data: orgCheck }, { data: adminCheck }] = await Promise.all([
+          supabase.from('organizers').select('id').eq('id', session.user.id).maybeSingle(),
+          supabase.from('admins').select('id').eq('id', session.user.id).maybeSingle(),
+        ]);
 
-        if (orgCheck) {
+        if (adminCheck) {
+          // Admins are not regular users - don't create a "users" record for them
+        } else if (orgCheck) {
           await supabase.from('organizers').update({
             full_name: fullName.trim(),
             phone_number: cleanPhone,
@@ -855,7 +884,16 @@ export default function BookTicketPage() {
                 {maxAllowedTickets <= 0 && (
                   <p className="text-xs font-semibold text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
                     <span>⚠️</span>
-                    <span>Sold out</span>
+                    <span>
+                      {perPersonRemaining === 0
+                        ? `You've reached the limit of ${perPersonLimit} ticket(s) per person for this event.`
+                        : "Sold out"}
+                    </span>
+                  </p>
+                )}
+                {perPersonLimit !== null && maxAllowedTickets > 0 && (
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5">
+                    Max {perPersonLimit} ticket(s) per person{ownBookedCount > 0 ? ` · you have ${ownBookedCount} already` : ""}.
                   </p>
                 )}
               </div>

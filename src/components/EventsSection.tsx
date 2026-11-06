@@ -6,8 +6,10 @@ import { createClient } from "@/utils/supabase/client";
 import EventDetailsModal from "@/components/EventDetailsModal";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
 
-const CITIES = ["All", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
-const CATEGORIES = ["All", "Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
+import { CITIES as SITE_CITIES, CATEGORIES as SITE_CATEGORIES } from "@/config/site";
+
+const CITIES = ["All", ...SITE_CITIES];
+const CATEGORIES = ["All", ...SITE_CATEGORIES];
 
 function toTitleCase(str?: string): string {
   if (!str) return "";

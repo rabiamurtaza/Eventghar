@@ -202,19 +202,19 @@ export default function MyAccountPage() {
     let error;
 
     if (role === "organizer") {
-      // Upsert to organizers, delete from users
-      const { error: upsertErr } = await supabase.from("organizers").upsert(updates);
-      error = upsertErr;
-      if (!error) {
-        await supabase.from("users").delete().eq("id", session.user.id);
-      }
+      // Organizers: update their existing row only (never insert/delete role records from here)
+      const { data: updatedRows, error: updateErr } = await supabase
+        .from("organizers")
+        .update({ full_name: fullName, phone_number: phoneNumber })
+        .eq("id", session.user.id)
+        .select("id");
+      error = updateErr || (!updatedRows || updatedRows.length === 0
+        ? { message: "Could not save your organizer profile (permission denied). Please contact the admin to update your details." }
+        : null);
     } else {
-      // Upsert to users, delete from organizers
+      // Users: create or update their own row
       const { error: upsertErr } = await supabase.from("users").upsert(updates);
       error = upsertErr;
-      if (!error) {
-        await supabase.from("organizers").delete().eq("id", session.user.id);
-      }
     }
 
     if (error) {
@@ -719,7 +719,7 @@ export default function MyAccountPage() {
                     <div>
                       <p className="text-xs font-semibold text-neutral-400 uppercase">Max Tickets Per Person</p>
                       <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
-                        {selectedEventModal.max_tickets_per_person || 3}
+                        {selectedEventModal.max_tickets_per_person || "No limit"}
                       </p>
                     </div>
                   </div>
