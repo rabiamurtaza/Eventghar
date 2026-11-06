@@ -23,6 +23,7 @@ export default function AdminEditEvent() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [submitStatus, setSubmitStatus] = useState<'draft' | 'published'>('draft');
+  const [savingMode, setSavingMode] = useState<string>("keep");
   const [actualEventId, setActualEventId] = useState<string>(id);
   const [eventNumber, setEventNumber] = useState<number | null>(null);
   const [organizers, setOrganizers] = useState<any[]>([]);
@@ -200,9 +201,16 @@ export default function AdminEditEvent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Read the chosen status straight from the button that was clicked
+    // (Save Changes keeps the current status; the other button changes it)
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+    const chosenStatus = submitter?.dataset.status || formData.status || submitStatus;
+    setSavingMode(submitter?.dataset.mode || "keep");
+
     setLoading(true);
     setMessage(null);
-    
+
     const supabase = createClient();
 
     let finalImageUrl = formData.image_url;
@@ -242,10 +250,15 @@ export default function AdminEditEvent() {
       image_url: finalImageUrl,
       payment_accounts: paymentAccounts,
       ticket_price: JSON.stringify(ticketTiers),
-      status: submitStatus,
+      status: chosenStatus,
     };
 
     const { error } = await supabase.from('events').update(payload).eq('id', actualEventId);
+    if (!error) {
+      // Keep the page in sync with what was saved (updates the buttons and status note)
+      setFormData(prev => ({ ...prev, status: chosenStatus }));
+      setSubmitStatus(chosenStatus === 'published' ? 'published' : 'draft');
+    }
 
     if (error) {
       setMessage({ type: "error", text: error.message });
@@ -262,7 +275,7 @@ export default function AdminEditEvent() {
         }));
         await supabase.from('ticket_types').insert(ticketsToInsert);
       }
-      setMessage({ type: "success", text: `Event ${eventNumber ? `#${eventNumber}` : ''} successfully updated!` });
+      setMessage({ type: "success", text: `Event ${eventNumber ? `#${eventNumber}` : ''} successfully updated! It is now ${chosenStatus === 'published' ? 'PUBLISHED (live)' : 'a DRAFT (hidden from the website)'}.` });
       window.scrollTo(0, 0); 
     }
     setLoading(false);
@@ -344,7 +357,15 @@ export default function AdminEditEvent() {
         )}
 
         {/* The Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            // Pressing Enter in a text box must NOT save the form - only clicking a button saves.
+            // (Enter still makes new lines inside textareas.)
+            if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault();
+          }}
+          className="space-y-8"
+        >
           
           {/* Section 1: Basic Info */}
           <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
@@ -592,7 +613,7 @@ export default function AdminEditEvent() {
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Event Status</label>
                 <p className="w-full rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-600 dark:border-neutral-600 dark:bg-black dark:text-neutral-400">
-                  Currently <strong className="uppercase">{formData.status || "draft"}</strong>. Change it with the buttons below: <strong>Save as Draft</strong> (hidden) or <strong>Publish Event</strong> (live). Sold out / ended are shown automatically from capacity and dates.
+                  Currently <strong className="uppercase">{formData.status || "draft"}</strong>. <strong>Save Changes</strong> keeps this status. Use <strong>{formData.status === "published" ? "Unpublish (Move to Draft)" : "Publish Event"}</strong> below to change it. Sold out / ended are shown automatically from capacity and dates.
                 </p>
               </div>
               <div className="sm:col-span-3 text-xs text-neutral-500 dark:text-neutral-400 bg-white dark:bg-neutral-800 p-3 rounded-lg border border-neutral-200 dark:border-neutral-700">
@@ -616,22 +637,37 @@ export default function AdminEditEvent() {
             </button>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-              <button 
-                type="submit" 
+              {/* Default action: save edits and KEEP the current status (published stays published) */}
+              <button
+                type="submit"
+                data-status={formData.status || "draft"}
+                data-mode="keep"
                 disabled={loading || isDeleting}
-                onClick={() => setSubmitStatus("draft")}
-                className="rounded-xl bg-neutral-200 px-8 py-3.5 text-base font-bold text-neutral-800 transition hover:bg-neutral-300 active:translate-y-0 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50 cursor-pointer"
+                className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-bold text-white transition hover:bg-indigo-700 active:translate-y-0 shadow-lg shadow-indigo-500/30 disabled:opacity-50 cursor-pointer"
               >
-                {loading && submitStatus === "draft" ? "Saving..." : "Save as Draft"}
+                {loading && savingMode === "keep" ? "Saving..." : `Save Changes (stay ${formData.status === "published" ? "Published" : "Draft"})`}
               </button>
-              <button 
-                type="submit" 
-                disabled={loading || isDeleting}
-                onClick={() => setSubmitStatus("published")}
-                className="rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer"
-              >
-                {loading && submitStatus === "published" ? "Publishing..." : "Publish Event"}
-              </button>
+              {formData.status === "published" ? (
+                <button
+                  type="submit"
+                  data-status="draft"
+                  data-mode="draft"
+                  disabled={loading || isDeleting}
+                  className="rounded-xl bg-neutral-200 px-8 py-3.5 text-base font-bold text-neutral-800 transition hover:bg-neutral-300 active:translate-y-0 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading && savingMode === "draft" ? "Saving..." : "Unpublish (Move to Draft)"}
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  data-status="published"
+                  data-mode="published"
+                  disabled={loading || isDeleting}
+                  className="rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading && savingMode === "published" ? "Publishing..." : "Publish Event"}
+                </button>
+              )}
             </div>
           </div>
 
