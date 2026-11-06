@@ -438,14 +438,18 @@ export default function BookTicketPage() {
       return;
     }
 
-    // Payment is handled privately by the team, so the screenshot is optional.
-    if (paymentScreenshot) {
-      const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
-      if (paymentErr) {
-        setErrorMsg(paymentErr);
-        setSubmitting(false);
-        return;
-      }
+    // Payment screenshot is compulsory for every booking.
+    if (!paymentScreenshot) {
+      setErrorMsg("Payment screenshot is required.");
+      setSubmitting(false);
+      return;
+    }
+
+    const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
+    if (paymentErr) {
+      setErrorMsg(paymentErr);
+      setSubmitting(false);
+      return;
     }
 
     const supabase = createClient();
@@ -486,8 +490,8 @@ export default function BookTicketPage() {
     let studentIdUrl = null;
 
     try {
-      // Upload Payment Screenshot (only if the user attached one)
-      if (paymentScreenshot) {
+      // Upload Payment Screenshot (required - validated above)
+      {
         const pExt = paymentScreenshot.name.split('.').pop();
         const pName = `payment-${Date.now()}-${Math.random().toString(36).substring(2)}.${pExt}`;
         const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, paymentScreenshot);
@@ -617,8 +621,6 @@ export default function BookTicketPage() {
   const parsePrice = (p: unknown) => parseFloat(String(p ?? '0').replace(/,/g, ''));
   const pricePerTicket = selectedTicket ? parsePrice(selectedTicket.price) : 0;
   const totalPrice = isNaN(pricePerTicket) ? 0 : pricePerTicket * numberOfTickets;
-  // Free event = no tiers, or every tier priced 0 / blank. Payment UI is hidden for free events.
-  const isFreeEvent = ticketOptions.length === 0 || ticketOptions.every((t: any) => !(parsePrice(t.price) > 0));
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 px-4 py-12 sm:px-6 lg:px-8">
@@ -658,7 +660,6 @@ export default function BookTicketPage() {
             <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
           </div>
 
-          {!isFreeEvent && (
           <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mb-3">Payment Instructions</h3>
             {event.payment_instructions && (
@@ -714,7 +715,6 @@ export default function BookTicketPage() {
               )}
             </div>
           </div>
-          )}
         </div>
 
         {/* Right Side: Booking Form */}
@@ -861,15 +861,6 @@ export default function BookTicketPage() {
               </div>
             </div>
 
-            {isFreeEvent ? (
-            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-bold text-neutral-900 dark:text-white text-lg">Price:</span>
-                <span className="font-bold text-green-500 text-xl">Free</span>
-              </div>
-            </div>
-            ) : (
-            <>
             <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-neutral-900 dark:text-white text-lg">Total to Pay:</span>
@@ -879,10 +870,11 @@ export default function BookTicketPage() {
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
               <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                Upload Payment Screenshot <span className="font-normal text-neutral-500">(optional)</span>
+                Upload Payment Screenshot *
               </label>
               <input
                 type="file"
+                required
                 accept="image/png, image/jpeg, image/jpg, image/webp" 
                 onChange={e => {
                   const file = e.target.files?.[0] || null;
@@ -901,8 +893,6 @@ export default function BookTicketPage() {
                 className="w-full text-sm text-neutral-900 dark:text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 dark:file:bg-green-900/30 dark:file:text-green-400"
               />
             </div>
-            </>
-            )}
 
             <button type="submit" disabled={submitting} className="mt-4 w-full rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer">
               {submitting ? "Submitting Request..." : "Request Review / Submit"}
