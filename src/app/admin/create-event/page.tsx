@@ -133,6 +133,10 @@ export default function AdminCreateEvent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Read the chosen status straight from the button that was clicked
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+    const chosenStatus = submitter?.dataset.status === "published" ? "published" : (submitter?.dataset.status === "draft" ? "draft" : submitStatus);
+    setSubmitStatus(chosenStatus);
     setLoading(true);
     setMessage(null);
 
@@ -205,7 +209,7 @@ export default function AdminCreateEvent() {
       image_url: finalImageUrl,
       payment_accounts: paymentAccounts,
       ticket_price: JSON.stringify(ticketTiers),
-      status: submitStatus,
+      status: chosenStatus,
       is_student_only: formData.is_student_only,
     };
 
@@ -271,7 +275,15 @@ export default function AdminCreateEvent() {
         )}
 
         {/* The Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            // Pressing Enter in a text box must NOT create the event - only clicking a button saves.
+            // (Enter still makes new lines inside textareas.)
+            if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault();
+          }}
+          className="space-y-8"
+        >
           
           {/* Section 1: Basic Info */}
           <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
@@ -530,16 +542,18 @@ export default function AdminCreateEvent() {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-end gap-4 pt-4 pb-12">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
+                data-status="draft"
                 disabled={loading}
                 onClick={() => setSubmitStatus("draft")}
                 className="rounded-xl bg-neutral-200 px-8 py-3.5 text-base font-bold text-neutral-800 transition hover:bg-neutral-300 active:translate-y-0 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50"
               >
                 {loading && submitStatus === "draft" ? "Saving..." : "Save as Draft"}
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
+                data-status="published"
                 disabled={loading}
                 onClick={() => setSubmitStatus("published")}
                 className="rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50"
