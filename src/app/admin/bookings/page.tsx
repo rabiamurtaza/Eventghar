@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
+import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
 
 export default function AdminBookingsPage() {
   // Main View Switcher
@@ -55,7 +56,9 @@ export default function AdminBookingsPage() {
               event_number,
               organizer_name,
               organizer_contact,
-              organizer_id
+              organizer_id,
+              ticket_price,
+              ticket_types (name, price)
             )
           `)
           .order('created_at', { ascending: false }),
@@ -184,11 +187,12 @@ export default function AdminBookingsPage() {
         b.user_email || "N/A",
         b.phone_number || "N/A",
         `${b.ticket_type || 'Standard'} (Qty: ${b.number_of_tickets || 1})`,
+        formatRs(getBookingPrice(b).total),
         b.status
       ]);
 
       autoTable(doc, {
-        head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Status']],
+        head: [['Event', 'Customer Name', 'Email', 'Phone', 'Tickets', 'Total', 'Status']],
         body: tableData,
         startY: 22,
       });
@@ -548,7 +552,7 @@ export default function AdminBookingsPage() {
                       <th className="px-6 py-4">Customer Details</th>
                       <th className="px-6 py-4">Tickets</th>
                       <th className="px-6 py-4">Payment Receipt</th>
-                      <th className="px-6 py-4">Student ID</th>
+                      <th className="px-6 py-4">Total</th>
                       <th className="px-6 py-4">Status & Action</th>
                     </tr>
                   </thead>
@@ -625,41 +629,19 @@ export default function AdminBookingsPage() {
                           )}
                         </td>
 
-                        {/* Student ID */}
+                        {/* Total amount = ticket type price × quantity */}
                         <td className="px-6 py-4">
-                          {b.student_id_url ? (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewImage({ 
-                                  url: b.student_id_url, 
-                                  title: `Student ID: ${b.full_name}`,
-                                  bookingId: b.id,
-                                  currentStatus: b.status
-                                })}
-                                className="group relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-indigo-500 transition cursor-pointer"
-                              >
-                                <img 
-                                  src={b.student_id_url} 
-                                  alt="Student ID" 
-                                  className="h-full w-full object-cover group-hover:scale-105 transition"
-                                />
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition">
-                                  View
-                                </div>
-                              </button>
-                              <a 
-                                href={b.student_id_url} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                              >
-                                Open ↗
-                              </a>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-neutral-400">N/A</span>
-                          )}
+                          {(() => {
+                            const price = getBookingPrice(b);
+                            return price.total === null ? (
+                              <span className="text-xs text-neutral-400" title="Ticket type not found in this event's current ticket types">—</span>
+                            ) : (
+                              <div>
+                                <div className="text-sm font-black text-neutral-900 dark:text-white">{formatRs(price.total)}</div>
+                                <div className="text-[11px] text-neutral-500">{price.quantity} × {formatRs(price.unitPrice)}</div>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Status & Action */}
