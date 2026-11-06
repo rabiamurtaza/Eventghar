@@ -196,32 +196,14 @@ export default function QRScannerModal({
         return;
       }
 
-      // 4. Check Event Matching
-      // If selectedEventId is set, verify that ticket belongs to this event
-      if (selectedEventId && parsed.event_id && parsed.event_id !== selectedEventId) {
-        playErrorBuzzer();
-        const activeEventObj = eventsList.find((e) => e.id === selectedEventId);
-        const activeName = fixedEventTitle || activeEventObj?.title || "Active Event";
-        const scannedEventName = parsed.event_title || "Another Event";
-
-        const res: ScanResult = {
-          type: "wrong_event",
-          message: `Wrong Event! This ticket belongs to "${scannedEventName}", not "${activeName}".`,
-          details: {
-            event_title: scannedEventName,
-            holder_name: parsed.holder_name,
-            ticket_code: parsed.ticket_code,
-            ticket_number: parsed.ticket_number,
-            total_tickets: parsed.total_tickets,
-          },
-          timestamp: timeStr,
-        };
+      // Helper to show a result card and log it
+      const showResult = (res: ScanResult, success = false) => {
+        if (success) playSuccessChime(); else playErrorBuzzer();
         setCurrentResult(res);
         setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
-        return;
-      }
+      };
 
-      // 5. Database Check
+      // 4. Database Check (the database is the source of truth, not the QR content)
       const { data: ticket, error } = await supabase
         .from("issued_tickets")
         .select(`
@@ -233,78 +215,153 @@ export default function QRScannerModal({
           )
         `)
         .eq("id", parsed.ticket_id)
-        .single();
+        .maybeSingle();
 
-      if (error || !ticket) {
-        playErrorBuzzer();
-        const res: ScanResult = {
+      // 22P02 = malformed ticket id (not a real ticket) -> handled as "not found" below
+      if (error && error.code !== "22P02") {
+        showResult({
           type: "invalid",
-          message: "Ticket not found in the database. Please verify booking.",
-          details: {
-            holder_name: parsed.holder_name,
-            ticket_code: parsed.ticket_code,
-          },
+          message: `Could not check ticket (${error.message}). Do NOT admit yet - check the connection and scan again.`,
+          details: { holder_name: parsed.holder_name, ticket_code: parsed.ticket_code },
           timestamp: timeStr,
-        };
-        setCurrentResult(res);
-        setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
+        });
         return;
       }
 
-      // 6. Check if already used
-      if (ticket.status === "used") {
-        playErrorBuzzer();
-        const scannedTimeFormatted = ticket.scanned_at
-          ? new Date(ticket.scanned_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : "earlier";
-
-        const res: ScanResult = {
-          type: "already_used",
-          message: `Ticket Already Used! Scanned at ${scannedTimeFormatted}.`,
-          details: {
-            holder_name: ticket.holder_name,
-            ticket_code: ticket.ticket_code,
-            ticket_number: ticket.ticket_number,
-            total_tickets: ticket.total_tickets,
-            scanned_at: ticket.scanned_at,
-          },
+      if (!ticket || (parsed.ticket_code && ticket.ticket_code && parsed.ticket_code !== ticket.ticket_code)) {
+        showResult({
+          type: "invalid",
+          message: "Ticket not found in the database. Do not admit - ask the attendee to show their booking.",
+          details: { holder_name: parsed.holder_name, ticket_code: parsed.ticket_code },
           timestamp: timeStr,
-        };
-        setCurrentResult(res);
-        setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
+        });
         return;
       }
 
-      // 7. Valid Entry! Mark ticket as 'used'
+      const ticketDetails = {
+        holder_name: ticket.holder_name,
+        ticket_code: ticket.ticket_code,
+        ticket_number: ticket.ticket_number,
+        total_tickets: ticket.total_tickets,
+        ticket_type: ticket.ticket_type,
+        event_title: ticket.events?.title,
+        scanned_at: ticket.scanned_at,
+      };
+
+      // 5. Check the ticket belongs to the event being scanned (using the database record)
+      if (selectedEventId && ticket.event_id !== selectedEventId) {
+        const activeEventObj = eventsList.find((e) => e.id === selectedEventId);
+        const activeName = fixedEventTitle || activeEventObj?.title || "Active Event";
+        const scannedEventName = ticket.events?.title || "Another Event";
+        showResult({
+          type: "wrong_event",
+          message: `Wrong Event! This ticket belongs to "${scannedEventName}", not "${activeName}".`,
+          details: ticketDetails,
+          timestamp: timeStr,
+        });
+        return;
+      }
+
+      // 6. Check ticket status
+      const alreadyUsedResult = (scannedAt?: string | null): ScanResult => ({
+        type: "already_used",
+        message: `Ticket Already Used! Scanned at ${
+          scannedAt ? new Date(scannedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "earlier"
+        }.`,
+        details: { ...ticketDetails, scanned_at: scannedAt || undefined },
+        timestamp: timeStr,
+      });
+
+      if (ticket.status === "used" || ticket.status === "scanned") {
+        showResult(alreadyUsedResult(ticket.scanned_at));
+        return;
+      }
+
+      if (ticket.status && ticket.status !== "valid") {
+        showResult({
+          type: "invalid",
+          message: `Ticket is ${String(ticket.status).toUpperCase()} and cannot be used for entry.`,
+          details: ticketDetails,
+          timestamp: timeStr,
+        });
+        return;
+      }
+
+      // 7. Check the booking is still verified (blocks bookings rejected after tickets were issued)
+      if (ticket.booking_id) {
+        const { data: booking } = await supabase
+          .from("bookings")
+          .select("status")
+          .eq("id", ticket.booking_id)
+          .maybeSingle();
+
+        if (booking && booking.status !== "verified" && booking.status !== "confirmed") {
+          showResult({
+            type: "invalid",
+            message: `Booking is ${String(booking.status).toUpperCase()} - this ticket is not valid for entry.`,
+            details: ticketDetails,
+            timestamp: timeStr,
+          });
+          return;
+        }
+      }
+
+      // 8. Mark as used ONLY if it is still valid. This is a single atomic database step,
+      //    so two gates scanning the same ticket at the same moment cannot both admit it.
       const { data: { session } } = await supabase.auth.getSession();
       const nowIso = new Date().toISOString();
 
-      await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from("issued_tickets")
         .update({
           status: "used",
           scanned_at: nowIso,
           scanned_by: session?.user?.id || null,
         })
-        .eq("id", ticket.id);
+        .eq("id", ticket.id)
+        .eq("status", "valid")
+        .select("id");
 
-      playSuccessChime();
-      const res: ScanResult = {
-        type: "success",
-        message: "VALID ENTRY (Admitted)",
-        details: {
-          holder_name: ticket.holder_name,
-          ticket_code: ticket.ticket_code,
-          ticket_number: ticket.ticket_number,
-          total_tickets: ticket.total_tickets,
-          ticket_type: ticket.ticket_type,
-          event_title: ticket.events?.title,
-          scanned_at: nowIso,
+      if (updateError) {
+        showResult({
+          type: "invalid",
+          message: `Entry NOT recorded (${updateError.message}). Do NOT admit - scan again.`,
+          details: ticketDetails,
+          timestamp: timeStr,
+        });
+        return;
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        // Either another gate just used it, or the database refused the change.
+        const { data: latest } = await supabase
+          .from("issued_tickets")
+          .select("status, scanned_at")
+          .eq("id", ticket.id)
+          .maybeSingle();
+
+        if (latest && (latest.status === "used" || latest.status === "scanned")) {
+          showResult(alreadyUsedResult(latest.scanned_at));
+        } else {
+          showResult({
+            type: "invalid",
+            message: "Entry NOT recorded - the database did not accept the check-in (permission problem). Do NOT admit; contact the admin.",
+            details: ticketDetails,
+            timestamp: timeStr,
+          });
+        }
+        return;
+      }
+
+      showResult(
+        {
+          type: "success",
+          message: "VALID ENTRY (Admitted)",
+          details: { ...ticketDetails, scanned_at: nowIso },
+          timestamp: timeStr,
         },
-        timestamp: timeStr,
-      };
-      setCurrentResult(res);
-      setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
+        true
+      );
 
       if (onScanSuccess) {
         onScanSuccess();

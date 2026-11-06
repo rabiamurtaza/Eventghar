@@ -100,8 +100,10 @@ export default function MyAccountPage() {
             full_name: resolvedName,
           }, { onConflict: "id" });
         }
+      }
 
-        // Fetch user bookings/tickets
+      // Fetch bookings/tickets for both users AND organizers (organizers can book tickets too)
+      {
         const { data: bookingsData } = await supabase
           .from("bookings")
           .select("*, event:events(*)")
@@ -234,6 +236,7 @@ export default function MyAccountPage() {
       verifiedPasses: any[];
       pendingCount: number;
       rejectedCount: number;
+      preparingCount: number;
     }> = {};
 
     tickets.forEach((booking) => {
@@ -260,6 +263,7 @@ export default function MyAccountPage() {
           verifiedPasses: [],
           pendingCount: 0,
           rejectedCount: 0,
+          preparingCount: 0,
         };
       }
 
@@ -276,23 +280,8 @@ export default function MyAccountPage() {
             grp.verifiedPasses.push(pass);
           });
         } else {
-          // Fallback if issued_tickets records not yet generated in table
-          for (let i = 1; i <= count; i++) {
-            const hex = Math.random().toString(36).substring(2, 5).toUpperCase();
-            const prefix = booking.id.replace(/-/g, "").slice(0, 4).toUpperCase();
-            const ticketCode = `EG-${prefix}${hex}-${i}`;
-            grp.verifiedPasses.push({
-              id: `${booking.id}-${i}`,
-              booking_id: booking.id,
-              event_id: eventId,
-              ticket_number: i,
-              total_tickets: count,
-              ticket_type: booking.ticket_type || "Standard",
-              ticket_code: ticketCode,
-              holder_name: booking.full_name || fullName || email.split("@")[0] || "Guest",
-              status: "valid",
-            });
-          }
+          // Real QR passes not generated yet - never show placeholder QR codes (they cannot be scanned)
+          grp.preparingCount += count;
         }
       } else if (booking.status === "rejected") {
         grp.rejectedCount += count;
@@ -400,18 +389,19 @@ export default function MyAccountPage() {
               >
                 Complete Profile
               </button>
-              {role === 'organizer' ? (
+              {role === 'organizer' && (
                 <button
                   onClick={() => setActiveTab("events")}
                   className={`pb-4 px-4 text-sm font-medium transition shrink-0 whitespace-nowrap ${
-                    activeTab === "events" 
-                      ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold" 
+                    activeTab === "events"
+                      ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-semibold"
                       : "text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
                   }`}
                 >
                   My Events ({organizerEvents.length})
                 </button>
-              ) : (
+              )}
+              {(
                 <button
                   onClick={() => setActiveTab("tickets")}
                   className={`pb-4 px-4 text-sm font-medium transition shrink-0 whitespace-nowrap ${
@@ -797,7 +787,7 @@ export default function MyAccountPage() {
             )}
 
             {/* Tickets Content (Users Only) */}
-            {role !== "organizer" && activeTab === "tickets" && (
+            {activeTab === "tickets" && (
               <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
                 {selectedEventForTickets ? (
                   /* Event Tickets View (In-Place on the page, replacing the event card list) */
@@ -837,6 +827,18 @@ export default function MyAccountPage() {
                         </span>
                         <p className="text-xs text-yellow-800 dark:text-yellow-300 leading-relaxed">
                           {selectedEventForTickets.pendingCount} {selectedEventForTickets.pendingCount === 1 ? "ticket is" : "tickets are"} awaiting payment verification by the organizer. Once verified, QR entry passes will appear here automatically.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Passes Being Prepared Notice */}
+                    {selectedEventForTickets.preparingCount > 0 && (
+                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-2xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 text-center shrink-0">
+                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 mb-2">
+                          Confirmed - Preparing Passes
+                        </span>
+                        <p className="text-xs text-indigo-800 dark:text-indigo-300 leading-relaxed">
+                          {selectedEventForTickets.preparingCount} {selectedEventForTickets.preparingCount === 1 ? "ticket is" : "tickets are"} confirmed. Your QR entry {selectedEventForTickets.preparingCount === 1 ? "pass is" : "passes are"} being prepared and will appear here shortly. If it does not appear, please contact support.
                         </p>
                       </div>
                     )}

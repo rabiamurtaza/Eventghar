@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { generateTicketsForBooking } from "@/utils/ticketService";
+import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
+import TicketsOverview from "@/components/TicketsOverview";
 
 export default function OrganizerBookingsPage() {
   const [session, setSession] = useState<any>(null);
@@ -53,7 +54,7 @@ export default function OrganizerBookingsPage() {
 
       const eventsQuery = supabase
         .from('events')
-        .select('id, title, organizer_id, event_number')
+        .select('id, title, organizer_id, event_number, total_tickets, ticket_price, ticket_types(name, total_available)')
         .eq('organizer_id', session.user.id)
         .eq('status', 'published');
 
@@ -124,27 +125,33 @@ export default function OrganizerBookingsPage() {
     setAttendanceLoading(false);
   }
 
-  const updateStatus = async (id: string, newStatus: string) => {
-    const supabase = createClient();
-    const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', id);
-    if (!error) {
-       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-       // When verified, automatically generate the individual QR tickets!
-       if (newStatus === 'verified') {
-         const booking = bookings.find(b => b.id === id);
-         if (booking) {
-           try {
-             await generateTicketsForBooking(supabase, booking);
-             fetchIssuedTickets();
-           } catch (e: any) {
-             console.error("Error generating tickets upon verification:", e);
-           }
-         }
-       }
+  const updateStatus = async (id: string, newStatus: 'verified' | 'rejected') => {
+    // Ignore double-clicks while this booking is already being processed
+    if (inFlightRef.current.has(id)) return;
+    const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+
+    inFlightRef.current.add(id);
+    setActionLoading(id);
+    const supabase = createClient();
+
+    const result = newStatus === 'verified'
+      ? await verifyBooking(supabase, booking, (msg) => window.confirm(msg))
+      : await rejectBooking(supabase, booking);
+
+    if (result.ok) {
+      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
+      if (result.warning) alert(result.warning);
+      fetchIssuedTickets();
     } else {
-       alert("Failed to update status: " + error.message);
+      alert(result.error);
     }
+
+    inFlightRef.current.delete(id);
+    setActionLoading(null);
   };
 
   const downloadEventBookingsPDF = async () => {
@@ -353,6 +360,9 @@ export default function OrganizerBookingsPage() {
         {/* VIEW 1: BOOKINGS & PAYMENTS */}
         {activeMainTab === "bookings" && (
           <>
+            {/* Capacity vs booked tickets for this organizer's own events only */}
+            <TicketsOverview events={eventsList} bookings={bookings} title="My Events - Tickets Overview" />
+
             <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
               <div className="flex flex-col sm:flex-row gap-4">
                 <input 
@@ -470,15 +480,17 @@ export default function OrganizerBookingsPage() {
                                   Pending
                                 </span>
                                 <div className="flex gap-2">
-                                  <button 
+                                  <button
+                                    disabled={actionLoading === booking.id}
                                     onClick={() => updateStatus(booking.id, 'verified')}
-                                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 transition"
+                                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50 transition"
                                   >
-                                    Verify & Issue
+                                    {actionLoading === booking.id ? "..." : "Verify & Issue"}
                                   </button>
-                                  <button 
+                                  <button
+                                    disabled={actionLoading === booking.id}
                                     onClick={() => updateStatus(booking.id, 'rejected')}
-                                    className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 transition"
+                                    className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 disabled:opacity-50 transition"
                                   >
                                     Reject
                                   </button>

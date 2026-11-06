@@ -518,12 +518,9 @@ export default function AdminCreateEvent() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Event Status</label>
-                <select name="status" value={formData.status} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-600 dark:bg-black dark:text-white">
-                  <option value="draft">Draft (Hidden)</option>
-                  <option value="published">Published (Live)</option>
-                  <option value="sold_out">Sold Out</option>
-                  <option value="ended">Ended</option>
-                </select>
+                <p className="w-full rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-600 dark:border-neutral-600 dark:bg-black dark:text-neutral-400">
+                  Set by the buttons below: <strong>Save as Draft</strong> (hidden) or <strong>Publish Event</strong> (live). Sold out / ended are shown automatically from capacity and dates.
+                </p>
               </div>
               <div className="sm:col-span-3 text-xs text-neutral-500 dark:text-neutral-400 bg-white dark:bg-neutral-800 p-3 rounded-lg border border-neutral-200 dark:border-neutral-700">
                 <span className="font-bold text-neutral-700 dark:text-neutral-300">Backend Logic (Hidden from Buyers):</span> 
