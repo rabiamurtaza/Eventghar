@@ -13,7 +13,7 @@ export default function TermsAndConditionsPage() {
             Terms & Conditions
           </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-neutral-400">
-            Last updated: October 2026
+            Last updated: November 2026
           </p>
         </div>
 
@@ -38,7 +38,7 @@ export default function TermsAndConditionsPage() {
           <section>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">3. Student Restrictions & Gate Entry</h2>
             <ul className="list-disc pl-5 space-y-1.5">
-              <li>Events marked as &quot;Student Only&quot; strictly require a valid Student ID card photo during checkout.</li>
+              <li>For university or &quot;Student Only&quot; events, attendees must present a valid student ID card along with their QR ticket at the entrance. Entry may be refused without a valid student ID.</li>
               <li>Gate scanners and security personnel reserve the right to verify the attendee&apos;s physical student ID card and QR ticket before granting entry.</li>
               <li>Tickets are non-transferable unless permitted in the specific event guidelines.</li>
             </ul>
@@ -55,9 +55,11 @@ export default function TermsAndConditionsPage() {
 
           <section>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">5. Cancellations & Refunds</h2>
-            <p>
-              Refund policies depend on the individual event organizer. If an event is cancelled by the organizers or platform, announcements and refund instructions will be communicated to the registered email and phone number.
-            </p>
+            <ul className="list-disc pl-5 space-y-1.5">
+              <li>Refund policies depend on the individual event organizer.</li>
+              <li>If an event is cancelled by the organizers or platform, announcements and refund instructions will be communicated to the registered email and phone number.</li>
+              <li>If the event takes place as scheduled and you choose not to attend, or are unable to attend for any personal reason, no refund will be issued.</li>
+            </ul>
           </section>
 
           <section>
