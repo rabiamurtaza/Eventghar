@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import CapacityMismatchHint from "@/components/CapacityMismatchHint";
 
 const CITIES = ["Karachi", "Lahore", "Islamabad", "Rawalpindi", "Faisalabad"];
 const CATEGORIES = ["Trips", "Qawwali Nights", "Concert", "Music", "Technology", "Food", "Business", "Arts", "Sports", "University Fest", "Workshop"];
@@ -402,6 +403,7 @@ export default function AdminCreateEvent() {
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Overall Event Capacity</label>
                 <input type="number" name="total_tickets" value={formData.total_tickets} onChange={handleChange} placeholder="e.g. 500" className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                <CapacityMismatchHint totalTickets={formData.total_tickets} tiers={ticketTiers} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Max Tickets Per Person</label>

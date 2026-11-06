@@ -97,6 +97,11 @@ export default function OrganizerBookingsPage() {
         { event: "*", schema: "public", table: "issued_tickets" },
         () => fetchData()
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => fetchData()
+      )
       .subscribe();
 
     return () => {

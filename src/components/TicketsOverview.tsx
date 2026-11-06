@@ -87,16 +87,27 @@ export default function TicketsOverview({ events, bookings, title = "Tickets Ove
 
     return Array.from(known.values()).map((evt) => {
       const evtBookings = bookings.filter((b) => b.event_id === evt.id);
-      const cap = Number(evt.total_tickets) > 0 ? Number(evt.total_tickets) : null;
+      const overallCap = Number(evt.total_tickets) > 0 ? Number(evt.total_tickets) : null;
+      const parsedTiers = parseTiers(evt);
+      // If every ticket type has a limit, the event can never sell more than their sum
+      const tierSum = parsedTiers.length > 0 && parsedTiers.every((t) => t.total !== null)
+        ? parsedTiers.reduce((s, t) => s + (t.total || 0), 0)
+        : null;
+      // Real capacity = the smaller of "Overall Event Capacity" and the ticket types' total
+      const caps = [overallCap, tierSum].filter((c): c is number => c !== null);
+      const cap = caps.length > 0 ? Math.min(...caps) : null;
+      const capNote = overallCap !== null && tierSum !== null && overallCap !== tierSum
+        ? `Overall capacity ${overallCap} · ticket types total ${tierSum}`
+        : undefined;
       const s = summarize(evtBookings);
-      const tiers = parseTiers(evt).map((t) => {
+      const tiers = parsedTiers.map((t) => {
         const tierBookings = evtBookings.filter((b) => (b.ticket_type || "Standard") === t.name);
         return { ...t, ...summarize(tierBookings) };
       });
       // Bookings whose ticket type doesn't match any current tier (e.g. a tier was renamed)
       const tierNames = new Set(tiers.map((t) => t.name));
       const unmatched = summarize(evtBookings.filter((b) => !tierNames.has(b.ticket_type || "Standard")));
-      return { evt, cap, ...s, tiers, unmatched };
+      return { evt, cap, capNote, ...s, tiers, unmatched };
     });
   }, [events, bookings]);
 
@@ -109,7 +120,7 @@ export default function TicketsOverview({ events, bookings, title = "Tickets Ove
         <div>
           <h2 className="text-lg font-extrabold text-neutral-900 dark:text-white">{title}</h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Counts real tickets (a booking of 5 = 5 tickets). Remaining = capacity − verified − pending.
+            Counts real tickets (a booking of 5 = 5 tickets). Capacity = the smaller of Overall Event Capacity and the ticket types&apos; total. Remaining = capacity − verified − pending.
           </p>
         </div>
         <select
@@ -132,7 +143,7 @@ export default function TicketsOverview({ events, bookings, title = "Tickets Ove
           {selected && (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
               {[
-                { label: "Capacity", value: selected.cap ?? "—", cls: "text-neutral-900 dark:text-white" },
+                { label: "Capacity", value: selected.cap ?? "—", sub: selected.capNote, cls: "text-neutral-900 dark:text-white" },
                 { label: "Verified tickets", value: selected.verified, sub: `${selected.verifiedBookings} booking(s)`, cls: "text-green-600 dark:text-green-400" },
                 { label: "Pending tickets", value: selected.pending, sub: `${selected.pendingBookings} booking(s)`, cls: "text-amber-600 dark:text-amber-400" },
                 {
@@ -173,13 +184,16 @@ export default function TicketsOverview({ events, bookings, title = "Tickets Ove
                         ? [{ key: "__other", label: "Other / renamed type", cap: null, verified: selected.unmatched.verified, pending: selected.unmatched.pending }]
                         : []),
                     ]
-                  : visibleRows.map((r) => ({ key: r.evt.id, label: eventLabel(r.evt), cap: r.cap, verified: r.verified, pending: r.pending }))
-                ).map((row) => {
+                  : visibleRows.map((r) => ({ key: r.evt.id, label: eventLabel(r.evt), cap: r.cap, capNote: r.capNote, verified: r.verified, pending: r.pending }))
+                ).map((row: { key: string; label: string; cap: number | null; capNote?: string; verified: number; pending: number }) => {
                   const remaining = row.cap !== null ? row.cap - row.verified - row.pending : null;
                   return (
                     <tr key={row.key}>
                       <td className="px-4 py-3 font-semibold text-neutral-900 dark:text-white">{row.label}</td>
-                      <td className="px-4 py-3">{row.cap ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {row.cap ?? "—"}
+                        {row.capNote && <div className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight mt-0.5">{row.capNote}</div>}
+                      </td>
                       <td className="px-4 py-3 font-bold text-green-600 dark:text-green-400">{row.verified}</td>
                       <td className="px-4 py-3 font-bold text-amber-600 dark:text-amber-400">{row.pending}</td>
                       <td className={`px-4 py-3 font-bold ${remaining !== null && remaining <= 0 ? "text-red-600 dark:text-red-400" : "text-indigo-600 dark:text-indigo-400"}`}>
