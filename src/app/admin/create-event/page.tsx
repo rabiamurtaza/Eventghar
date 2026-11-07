@@ -274,7 +274,7 @@ export default function AdminCreateEvent() {
         <form onSubmit={handleSubmit} className="space-y-8">
           
           {/* Section 1: Basic Info */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">1. Basic Information</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -317,7 +317,7 @@ export default function AdminCreateEvent() {
           </div>
 
           {/* Section 2: Dates & Times */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">2. Dates & Times</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -348,7 +348,7 @@ export default function AdminCreateEvent() {
           </div>
 
           {/* Section 3: Location & Venue */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">3. Location & Venue</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -367,7 +367,7 @@ export default function AdminCreateEvent() {
           </div>
 
           {/* Section 4: Ticketing & Capacity */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">4. Ticketing & Capacity</h2>
             
             <div className="mb-8">
@@ -429,7 +429,7 @@ export default function AdminCreateEvent() {
           </div>
 
           {/* Section 5: Payment Info */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">5. Payment Information</h2>
             <div className="space-y-4">
               {paymentAccounts.map((acc, index) => (
@@ -467,7 +467,7 @@ export default function AdminCreateEvent() {
           </div>
 
           {/* Section 6: Rules & Terms */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">6. Rules & Terms</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -478,7 +478,7 @@ export default function AdminCreateEvent() {
           </div>
 
           {/* Section 7: Organizer & Status (Admin Settings) */}
-          <div className="bg-neutral-100 dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 dark:border-neutral-700 shadow-inner">
+          <div className="bg-neutral-100 dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-300 dark:border-neutral-700 shadow-inner">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-300 dark:border-neutral-700 pb-2 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-neutral-500">
                 <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />

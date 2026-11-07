@@ -142,7 +142,7 @@ export default function AdminContactMessagesPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-neutral-900 p-5 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Total Inquiries</p>
             <p className="text-2xl font-black text-neutral-900 dark:text-white mt-1">{messages.length}</p>
@@ -152,7 +152,7 @@ export default function AdminContactMessagesPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-neutral-900 p-5 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Needs Attention</p>
             <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{pendingCount}</p>
@@ -162,7 +162,7 @@ export default function AdminContactMessagesPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-neutral-900 p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-neutral-900 p-5 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400">Resolved</p>
             <p className="text-2xl font-black text-green-600 dark:text-green-400 mt-1">{resolvedCount}</p>
@@ -174,7 +174,7 @@ export default function AdminContactMessagesPage() {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 mb-6 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+      <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 mb-6 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
         <div className="w-full md:w-80">
           <input
             type="text"
@@ -216,7 +216,7 @@ export default function AdminContactMessagesPage() {
       {loading ? (
         <div className="p-12 text-center text-neutral-500">Loading inquiries...</div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white dark:bg-neutral-900 rounded-3xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 p-12 text-center">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg border-2 border-dashed border-neutral-200 dark:border-neutral-800 p-12 text-center">
           <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
             💬
           </div>
@@ -230,7 +230,7 @@ export default function AdminContactMessagesPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-neutral-50 dark:bg-neutral-800/60 border-b border-neutral-200 dark:border-neutral-800 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
@@ -334,8 +334,8 @@ export default function AdminContactMessagesPage() {
 
       {/* Message Details Modal */}
       {selectedMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-lg p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-4 mb-6">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
@@ -357,7 +357,7 @@ export default function AdminContactMessagesPage() {
             </div>
 
             {/* Sender Info Grid */}
-            <div className="grid grid-cols-2 gap-4 text-xs bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-2xl mb-6 border border-neutral-100 dark:border-neutral-800">
+            <div className="grid grid-cols-2 gap-4 text-xs bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-lg mb-6 border border-neutral-100 dark:border-neutral-800">
               <div>
                 <span className="text-neutral-400 font-semibold uppercase block">Sender Name</span>
                 <span className="font-bold text-neutral-900 dark:text-white text-sm mt-0.5 block">
@@ -381,7 +381,7 @@ export default function AdminContactMessagesPage() {
             {/* Message Body */}
             <div className="mb-6">
               <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">Message Content</h3>
-              <div className="bg-neutral-50 dark:bg-neutral-950 p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap leading-relaxed">
+              <div className="bg-neutral-50 dark:bg-neutral-950 p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap leading-relaxed">
                 {selectedMessage.message}
               </div>
             </div>

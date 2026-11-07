@@ -356,7 +356,7 @@ export default function AdminOrganizersAndUsersPage() {
         <div className="py-20 text-center text-neutral-500">Loading accounts...</div>
       ) : activeTab === "organizers" ? (
         /* Organizers Tab */
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-neutral-600 dark:text-neutral-400">
               <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/50">
@@ -458,7 +458,7 @@ export default function AdminOrganizersAndUsersPage() {
         </div>
       ) : (
         /* Registered Users Tab */
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-neutral-600 dark:text-neutral-400">
               <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/50">
@@ -532,8 +532,8 @@ export default function AdminOrganizersAndUsersPage() {
 
       {/* Manual Promote Modal */}
       {isManualModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-md space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Promote by User UUID</h3>
               <button

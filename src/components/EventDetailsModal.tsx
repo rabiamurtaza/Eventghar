@@ -240,13 +240,13 @@ export default function EventDetailsModal({
     >
       {/* Dimmed Blurred Backdrop */}
       <div
-        className="fixed inset-0 bg-[#0f071a]/70 backdrop-blur-sm transition-opacity motion-reduce:transition-none"
+        className="fixed inset-0 bg-[#0f071a]/70 transition-opacity motion-reduce:transition-none"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Main Card (460px Desktop Modal / Mobile Bottom Sheet) */}
-      <div className="relative w-full sm:max-w-[460px] bg-white dark:bg-[#140d24] rounded-t-[24px] sm:rounded-[24px] border border-neutral-200/90 dark:border-[#352453] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 max-sm:slide-in-from-bottom duration-200 motion-reduce:transition-none max-h-[92vh] sm:max-h-[88vh]">
+      <div className="relative w-full sm:max-w-[460px] bg-white dark:bg-[#140d24] rounded-t-[24px] sm:rounded-[24px] border border-neutral-200/90 dark:border-[#352453] shadow-lg flex flex-col overflow-hidden animate-in fade-in zoom-in-95 max-sm:slide-in-from-bottom duration-200 motion-reduce:transition-none max-h-[92vh] sm:max-h-[88vh]">
         
         {/* Mobile Drag Indicator Handle */}
         <div className="sm:hidden pt-2.5 pb-1 flex justify-center bg-neutral-900/90">
@@ -282,7 +282,7 @@ export default function EventDetailsModal({
               type="button"
               onClick={onClose}
               aria-label="Close details"
-              className="absolute top-3.5 right-3.5 z-20 h-9 w-9 rounded-full bg-black/40 hover:bg-black/70 backdrop-blur-md text-white border border-white/20 flex items-center justify-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a1fd1] shadow-xs cursor-pointer active:scale-95"
+              className="absolute top-3.5 right-3.5 z-20 h-9 w-9 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a1fd1] shadow-xs cursor-pointer active:scale-95"
             >
               <svg
                 className="w-4 h-4"
@@ -318,7 +318,7 @@ export default function EventDetailsModal({
 
             {/* Inactive / Closed Notice if not bookable */}
             {!lifecycle.canBook && (
-              <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 p-3 text-xs text-amber-900 dark:text-amber-200 font-semibold flex items-center gap-2">
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 p-3 text-xs text-amber-900 dark:text-amber-200 font-semibold flex items-center gap-2">
                 <span className="text-base shrink-0">⚠️</span>
                 <span>{lifecycle.reason || "Booking is currently unavailable for this event."}</span>
               </div>
@@ -336,7 +336,7 @@ export default function EventDetailsModal({
               {/* Row 1: Date */}
               {formattedDate && (
                 <div className="flex items-center gap-3">
-                  <div className="h-[46px] w-[46px] rounded-2xl bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
+                  <div className="h-[46px] w-[46px] rounded-lg bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
@@ -355,7 +355,7 @@ export default function EventDetailsModal({
               {/* Row 2: Time */}
               {formattedTime && (
                 <div className="flex items-center gap-3">
-                  <div className="h-[46px] w-[46px] rounded-2xl bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
+                  <div className="h-[46px] w-[46px] rounded-lg bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -374,7 +374,7 @@ export default function EventDetailsModal({
               {/* Row 3: Doors Open (only if present) */}
               {formattedDoors && (
                 <div className="flex items-center gap-3">
-                  <div className="h-[46px] w-[46px] rounded-2xl bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
+                  <div className="h-[46px] w-[46px] rounded-lg bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                     </svg>
@@ -393,7 +393,7 @@ export default function EventDetailsModal({
               {/* Row 4: Venue */}
               {venue && (
                 <div className="flex items-center gap-3">
-                  <div className="h-[46px] w-[46px] rounded-2xl bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
+                  <div className="h-[46px] w-[46px] rounded-lg bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -462,7 +462,7 @@ export default function EventDetailsModal({
 
                 {/* Soft Lavender Accordion Panel */}
                 {detailsOpen && (
-                  <div className="mt-2.5 rounded-2xl bg-[#f6effd]/90 dark:bg-[#1f1333] border border-[#ebdcfb] dark:border-[#3a2559] p-4 space-y-3.5 animate-in fade-in duration-200">
+                  <div className="mt-2.5 rounded-lg bg-[#f6effd]/90 dark:bg-[#1f1333] border border-[#ebdcfb] dark:border-[#3a2559] p-4 space-y-3.5 animate-in fade-in duration-200">
                     {/* Render Structured Sections */}
                     {sections.map((sec, idx) => (
                       <div key={idx}>
@@ -522,7 +522,7 @@ export default function EventDetailsModal({
         </div>
 
         {/* Always Visible Sticky Footer Bar */}
-        <div className="sticky bottom-0 bg-white/95 dark:bg-[#140d24]/95 backdrop-blur-md border-t border-neutral-200/90 dark:border-neutral-800 px-5 py-3.5 flex items-center justify-between rounded-b-none sm:rounded-b-[24px] shrink-0">
+        <div className="sticky bottom-0 bg-white/95 dark:bg-[#140d24]/95 border-t border-neutral-200/90 dark:border-neutral-800 px-5 py-3.5 flex items-center justify-between rounded-b-none sm:rounded-b-[24px] shrink-0">
           <div>
             <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
               {lifecycle.canBook ? "Tickets from" : "Booking Status"}

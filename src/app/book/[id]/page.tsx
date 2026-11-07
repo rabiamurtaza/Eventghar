@@ -525,7 +525,7 @@ export default function BookTicketPage() {
   if (!event) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -547,7 +547,7 @@ export default function BookTicketPage() {
   if (event && !lifecycle.canBook) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
           <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
             {lifecycle.status === 'sold_out' ? '🎟️' : lifecycle.status === 'ended' ? '🏁' : '⏱️'}
           </div>
@@ -572,7 +572,7 @@ export default function BookTicketPage() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           </div>
@@ -598,7 +598,7 @@ export default function BookTicketPage() {
         
         {/* Left Side: Event & Payment Info */}
         <div className="space-y-6">
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             {event.image_url && <img src={event.image_url} alt="Event" className="w-full h-48 object-cover rounded-xl mb-4" />}
             <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2 mb-2">
               <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">{event.title}</h2>
@@ -630,7 +630,7 @@ export default function BookTicketPage() {
             <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
           </div>
 
-          <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mb-3">Payment Instructions</h3>
             {event.payment_instructions && (
               <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mb-4 bg-neutral-50 dark:bg-neutral-950 p-3 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 leading-relaxed whitespace-pre-wrap">
@@ -688,7 +688,7 @@ export default function BookTicketPage() {
         </div>
 
         {/* Right Side: Booking Form */}
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 sm:p-6 md:p-8 border border-neutral-200 dark:border-neutral-800 shadow-sm h-fit">
+        <div className="bg-white dark:bg-neutral-900 rounded-lg p-4 sm:p-6 md:p-8 border border-neutral-200 dark:border-neutral-800 shadow-sm h-fit">
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
             Book Tickets
           </h2>

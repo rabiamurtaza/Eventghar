@@ -329,11 +329,11 @@ export default function QRScannerModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative max-h-[95vh] max-w-lg w-full bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col text-white"
+        className="relative max-h-[95vh] max-w-lg w-full bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden shadow-lg flex flex-col text-white"
       >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/90">
@@ -383,7 +383,7 @@ export default function QRScannerModal({
               <p>{scannerError}</p>
             </div>
           ) : (
-            <div className="relative w-full max-w-[300px] aspect-square rounded-2xl overflow-hidden border-2 border-indigo-500/50 shadow-inner bg-neutral-950">
+            <div className="relative w-full max-w-[300px] aspect-square rounded-lg overflow-hidden border-2 border-indigo-500/50 shadow-inner bg-neutral-950">
               <div id="qr-camera-feed" className="w-full h-full object-cover"></div>
 
               {/* Force hide any internal html5-qrcode pause/banner overlays */}
@@ -414,7 +414,7 @@ export default function QRScannerModal({
               </div>
 
               {isProcessing && !currentResult && (
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center text-xs font-bold text-white">
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-xs font-bold text-white">
                   Verifying...
                 </div>
               )}

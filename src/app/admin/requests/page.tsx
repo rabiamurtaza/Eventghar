@@ -269,7 +269,7 @@ export default function AdminEventRequestsPage() {
       </div>
 
       {/* Table Area */}
-      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-neutral-600 dark:text-neutral-400">
             <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/50">
@@ -378,11 +378,11 @@ export default function AdminEventRequestsPage() {
       {selectedRequest && (
         <div 
           onClick={() => setSelectedRequest(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="relative max-h-[90vh] max-w-xl w-full bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col"
+            className="relative max-h-[90vh] max-w-xl w-full bg-white dark:bg-neutral-900 rounded-lg overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800 flex flex-col"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">

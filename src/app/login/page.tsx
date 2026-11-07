@@ -29,7 +29,7 @@ function LoginForm() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-slate-50 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm text-center">
+      <div className="w-full max-w-md space-y-6 rounded-lg border border-slate-200 bg-white p-8 shadow-sm text-center">
         <div>
           <h2 className="text-3xl font-extrabold text-slate-900">Welcome back</h2>
           <p className="mt-2 text-sm text-slate-600">

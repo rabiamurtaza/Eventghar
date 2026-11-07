@@ -142,7 +142,7 @@ export default function PublishedEventsPage() {
         {loading ? (
           <div className="text-center py-12 text-neutral-500">Loading events...</div>
         ) : events.length === 0 ? (
-          <div className="rounded-2xl border border-neutral-200 bg-white p-12 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="rounded-lg border border-neutral-200 bg-white p-12 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
             <h3 className="text-lg font-medium text-neutral-900 dark:text-white">No published events found</h3>
             <p className="mt-1 text-neutral-500 dark:text-neutral-400">You don&apos;t have any live events right now.</p>
           </div>
@@ -154,14 +154,14 @@ export default function PublishedEventsPage() {
               const totalCap = Number(event.total_tickets) || 0;
 
               return (
-              <div key={event.id} className="overflow-hidden rounded-2xl bg-white border border-neutral-200 shadow-sm dark:bg-neutral-900 dark:border-neutral-800 flex flex-col">
+              <div key={event.id} className="overflow-hidden rounded-lg bg-white border border-neutral-200 shadow-sm dark:bg-neutral-900 dark:border-neutral-800 flex flex-col">
                 <div className="aspect-video w-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center relative overflow-hidden">
                   {event.image_url ? (
                     <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-neutral-400 text-sm font-medium">No Image</span>
                   )}
-                  <div className={`absolute top-4 left-4 rounded ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-sm flex items-center gap-1.5`}>
+                  <div className={`absolute top-4 left-4 rounded ${lifecycle.badgeBg} ${lifecycle.badgeText} px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5`}>
                     {(lifecycle.status === 'today' || lifecycle.status === 'upcoming') && (
                       <span className="relative flex h-1.5 w-1.5">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -242,11 +242,11 @@ export default function PublishedEventsPage() {
       {eventToDelete && (
         <div
           onClick={() => !isDeleting && setEventToDelete(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl text-[#1c1230] dark:text-white animate-in zoom-in-95 duration-150"
+            className="w-full max-w-md rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-lg text-[#1c1230] dark:text-white animate-in zoom-in-95 duration-150"
           >
             <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
               <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-950/60 flex items-center justify-center shrink-0">
