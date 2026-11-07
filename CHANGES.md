@@ -42,7 +42,7 @@ Nothing here has been pushed. Push only after explicit approval.
 
 ## Footer (src/components/Footer.tsx)
 
-- LinkedIn removed.
+- LinkedIn removed. The WhatsApp and Instagram icon row under "Connect With Us" was removed too (the text Instagram link, email and copyright stay).
 - Instagram links to https://instagram.com/eventgharofficial with the handle shown.
 - Copyright moved into the contact column; the bottom bar is gone and the footer is shorter.
 - Contact values read from `siteConfig`.
