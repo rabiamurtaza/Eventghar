@@ -67,7 +67,12 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Display face (Fraunces) for headlines, section titles and the logo */
+/* Navbar wordmark keeps its original font (Bricolage Grotesque) */
+.font-logo {
+  font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Display face (Fraunces) for headlines and section titles */
 .font-serif-display {
   font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
   letter-spacing: -0.01em;

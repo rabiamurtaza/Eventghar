@@ -121,12 +121,12 @@ export default function Navbar() {
           <div className="flex items-center min-w-0 shrink-0">
             <Link
               href="/"
-              className="transition hover:opacity-90 font-heading select-none flex items-center"
+              className="transition hover:opacity-90 font-logo select-none flex items-center"
               aria-label="EventGhar Home"
             >
-              <span className="font-serif-display flex items-baseline whitespace-nowrap leading-none text-[22px] sm:text-[28px] tracking-[-0.02em]">
-                <span className={`font-medium ${isGlass ? "text-white" : "text-[#1c1230]"}`}>Event</span>
-                <span className={`font-semibold italic ${isGlass ? "text-purple-300" : "text-[#7a1fd1]"}`}>Ghar</span>
+              <span className="text-[17px] xs:text-xl sm:text-2xl font-bold tracking-tight whitespace-nowrap leading-none flex items-center">
+                <span className={isGlass ? "text-white" : "text-[#1c1230]"}>Event</span>
+                <span className={isGlass ? "text-purple-300" : "text-[#7a1fd1]"}>Ghar</span>
               </span>
             </Link>
           </div>

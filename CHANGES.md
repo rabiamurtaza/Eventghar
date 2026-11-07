@@ -19,7 +19,7 @@ Nothing here has been pushed. Push only after explicit approval.
 
 - Liquid glass applied to the bar, always on (`src/components/uilayouts/liquid-glass.tsx`, from uilayouts). New deps: `motion`, `clsx`, `tailwind-merge`; new helper `src/lib/utils.ts`.
 - Bar narrowed to `max-w-4xl`.
-- Logo is a text wordmark: "Event" upright serif plus italic purple "Ghar". Icon mark and accent dot removed.
+- Logo is back to the original: plain "Event" + purple "Ghar" text in Bricolage Grotesque (loaded via `next/font`, used only by the logo through `.font-logo`). The serif wordmark experiment was reverted.
 - Middle of the bar has nav links (Events, How it works, Contact) from `siteConfig.navLinks`; "Explore" shows on phones only.
 - Fixed: glass turned light after 80px of scroll while still over the dark hero. It now switches only when the hero's bottom edge passes under the bar.
 - Tested in Edge (desktop, mobile, scrolled): every top-bar button is reachable and works.
@@ -51,8 +51,11 @@ Nothing here has been pushed. Push only after explicit approval.
 
 - Across 23 `.tsx` files: `rounded-2xl`/`rounded-3xl` changed to `rounded-lg`, `backdrop-blur-*` removed, `shadow-xl`/`shadow-2xl` toned down. The main page cards were then rounded back up to `rounded-3xl`.
 
+## Support email
+
+- `eventghar1@gmail.com` is the confirmed support email. The home card, footer, contact page and terms page all read it from `src/config/site.ts`.
+
 ## Open items
 
 - **Claude Code icons breaking in Windows cmd/PowerShell:** not fixed. PowerShell is on UTF-8; Windows Terminal is installed but unconfigured. Glyphs used: `✓ ❯ ⚠ ✗ ◼ ✔ ● ⎯ ⧉ ✘ ⏵`.
 - **UI/UX skill (`nextlevelbuilder/ui-ux-pro-max-skill`):** not installed. Run `/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill` then `/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`.
-- **Support email is inconsistent:** the contact and terms pages use `support@eventghar.pk`; the home card and footer use `eventghar1@gmail.com`. Confirm the right one.

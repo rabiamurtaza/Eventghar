@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { siteConfig } from "@/config/site";
 
 export default function TermsAndConditionsPage() {
   return (
@@ -66,7 +67,7 @@ export default function TermsAndConditionsPage() {
               <Link href="/contact-us" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
                 Contact Us
               </Link>{" "}
-              page or reach out to us at <strong>support@eventghar.pk</strong>.
+              page or reach out to us at <strong>{siteConfig.supportEmail}</strong>.
             </p>
           </section>
         </div>
