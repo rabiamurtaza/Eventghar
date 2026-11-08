@@ -24,10 +24,10 @@ export default function PublishedEventsPage() {
         .select('*')
         .eq('status', 'published')
         .order('created_at', { ascending: false }),
+      // Totals only (one row per event and ticket type) - never hits the 1,000-row limit
       supabase
-        .from('bookings')
-        .select('event_id, number_of_tickets, status')
-        .in('status', ['verified', 'confirmed', 'pending'])
+        .from('event_ticket_counts')
+        .select('event_id, tickets')
     ]);
 
     if (eventsRes.data) {
@@ -37,7 +37,7 @@ export default function PublishedEventsPage() {
       const counts: Record<string, number> = {};
       bookingsRes.data.forEach((b: any) => {
         if (b.event_id) {
-          counts[b.event_id] = (counts[b.event_id] || 0) + (Number(b.number_of_tickets) || 1);
+          counts[b.event_id] = (counts[b.event_id] || 0) + (Number(b.tickets) || 0);
         }
       });
       setBookingsMap(counts);
@@ -49,21 +49,28 @@ export default function PublishedEventsPage() {
     fetchEvents();
 
     const supabase = createClient();
+    // Changes that arrive close together trigger ONE reload
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReload = () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => fetchEvents(), 1500);
+    };
     const channel = supabase
       .channel("admin-published-events-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
-        () => fetchEvents()
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bookings" },
-        () => fetchEvents()
+        scheduleReload
       )
       .subscribe();
 
     return () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
       supabase.removeChannel(channel);
     };
   }, []);

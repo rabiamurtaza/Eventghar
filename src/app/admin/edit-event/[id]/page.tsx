@@ -9,6 +9,7 @@ import { CITIES, CATEGORIES } from "@/config/site";
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { deleteEventCascade } from "@/utils/eventService";
+import { validateEventForm, findEventEditWarnings, parsePriceInput } from "@/utils/eventValidation";
 
 export default function AdminEditEvent() {
   const params = useParams();
@@ -212,6 +213,26 @@ export default function AdminEditEvent() {
 
     const supabase = createClient();
 
+    const formError = validateEventForm(formData, ticketTiers);
+    if (formError) {
+      setMessage({ type: 'error', text: formError });
+      setLoading(false);
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    // Warn (not block) if this change leaves existing bookings inconsistent
+    const editWarnings = await findEventEditWarnings(supabase, actualEventId, formData.total_tickets, ticketTiers);
+    if (editWarnings.length > 0) {
+      const proceed = window.confirm(
+        `Please check before saving:\n\n- ${editWarnings.join("\n- ")}\n\nSave these changes anyway?`
+      );
+      if (!proceed) {
+        setLoading(false);
+        return;
+      }
+    }
+
     let finalImageUrl = formData.image_url;
 
     if (imageFile) {
@@ -265,14 +286,23 @@ export default function AdminEditEvent() {
       // Also sync ticket_types table
       const validTiers = ticketTiers.filter(tier => tier.name || tier.price || tier.total);
       if (validTiers.length > 0) {
-        await supabase.from('ticket_types').delete().eq('event_id', actualEventId);
+        // Add the new rows first and remove the old ones only after that worked,
+        // so a failed save can never leave the event without ticket types.
+        const { data: oldRows } = await supabase.from('ticket_types').select('id').eq('event_id', actualEventId);
         const ticketsToInsert = validTiers.map(tier => ({
           event_id: actualEventId,
           name: tier.name || 'Standard',
-          price: tier.price ? parseFloat(tier.price) : 0,
+          price: tier.price ? parsePriceInput(tier.price) : 0,
           total_available: tier.total ? parseInt(tier.total) : null,
         }));
-        await supabase.from('ticket_types').insert(ticketsToInsert);
+        const { data: insertedRows, error: tiersError } = await supabase.from('ticket_types').insert(ticketsToInsert).select('id');
+        if (!tiersError) {
+          const newIds = new Set((insertedRows || []).map((r: { id: string }) => r.id));
+          const oldIds = (oldRows || []).map((r: { id: string }) => r.id).filter((rowId: string) => !newIds.has(rowId));
+          if (oldIds.length > 0) {
+            await supabase.from('ticket_types').delete().in('id', oldIds);
+          }
+        }
       }
       setMessage({ type: "success", text: `Event ${eventNumber ? `#${eventNumber}` : ''} successfully updated! It is now ${chosenStatus === 'published' ? 'PUBLISHED (live)' : 'a DRAFT (hidden from the website)'}.` });
       window.scrollTo(0, 0); 

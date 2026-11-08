@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getReviewedRequestIds } from "@/utils/requestTracking";
+import { fetchAllRows } from "@/utils/fetchAll";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({
@@ -47,13 +48,17 @@ export default function AdminDashboardPage() {
         : uniqueOrganizers.size;
 
       // 2. Fetch Tickets Sold & Pending Bookings
-      const { data: bookingsData } = await supabase
-        .from('bookings')
-        .select('number_of_tickets, status');
+      const { data: bookingsData, error: bookingsError } = await fetchAllRows<{ number_of_tickets: number | null; status: string }>((from, to) =>
+        supabase
+          .from('bookings')
+          .select('number_of_tickets, status')
+          .order('id')
+          .range(from, to)
+      );
 
       let totalTicketsSold = 0;
       let pendingBookings = 0;
-      if (bookingsData) {
+      if (!bookingsError) {
         bookingsData.forEach(b => {
           if (b.status === 'verified' || b.status === 'confirmed') {
             totalTicketsSold += (b.number_of_tickets || 0);

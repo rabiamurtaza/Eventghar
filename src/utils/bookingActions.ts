@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { generateTicketsForBooking } from "@/utils/ticketService";
+import { fetchAllRows } from "@/utils/fetchAll";
 
 type BookingLike = {
   id: string;
@@ -37,11 +38,16 @@ async function findCapacityProblem(supabase: SupabaseClient, booking: BookingLik
 
   const [{ data: event }, { data: verified }] = await Promise.all([
     supabase.from("events").select("total_tickets, ticket_price").eq("id", booking.event_id).maybeSingle(),
-    supabase
-      .from("bookings")
-      .select("id, ticket_type, number_of_tickets")
-      .eq("event_id", booking.event_id)
-      .in("status", ACTIVE_STATUSES),
+    // Paged so a very large event is never cut off at 1,000 bookings
+    fetchAllRows<{ id: string; ticket_type?: string; number_of_tickets: number }>((from, to) =>
+      supabase
+        .from("bookings")
+        .select("id, ticket_type, number_of_tickets")
+        .eq("event_id", booking.event_id)
+        .in("status", ACTIVE_STATUSES)
+        .order("id")
+        .range(from, to)
+    ),
   ]);
 
   const others = (verified || []).filter((b: { id: string }) => b.id !== booking.id);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 import { CITIES, CATEGORIES } from "@/config/site";
+import { validateEventForm, parsePriceInput } from "@/utils/eventValidation";
 
 export default function AdminCreateEvent() {
   const [loading, setLoading] = useState(false);
@@ -145,7 +146,15 @@ export default function AdminCreateEvent() {
       setLoading(false);
       return;
     }
-    
+
+    const formError = validateEventForm(formData, ticketTiers);
+    if (formError) {
+      setMessage({ type: 'error', text: formError });
+      setLoading(false);
+      window.scrollTo(0, 0);
+      return;
+    }
+
     const supabase = createClient();
     
     const { data: { session } } = await supabase.auth.getSession();
@@ -228,7 +237,7 @@ export default function AdminCreateEvent() {
         const ticketsToInsert = validTiers.map(tier => ({
            event_id: newEvent.id,
            name: tier.name || 'Standard',
-           price: tier.price ? parseFloat(tier.price) : 0,
+           price: tier.price ? parsePriceInput(tier.price) : 0,
            total_available: tier.total ? parseInt(tier.total) : null,
         }));
         

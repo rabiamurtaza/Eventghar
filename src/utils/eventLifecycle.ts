@@ -15,10 +15,29 @@ export interface EventLifecycle {
   bookedTickets: number;
 }
 
+/** "20:30:00", "8:30 PM" -> hours and minutes of the day, or null if it cannot be read. */
+function parseTimeOfDay(timeStr?: string | null): { hours: number; minutes: number } | null {
+  if (!timeStr) return null;
+  const cleanTime = timeStr.trim().toLowerCase();
+  const isPM = cleanTime.includes('pm');
+  const isAM = cleanTime.includes('am');
+  const parts = cleanTime.replace(/[^\d:]/g, '').split(':');
+  let h = parseInt(parts[0], 10);
+  const m = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
+  if (isNaN(h)) return null;
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  return {
+    hours: Math.min(23, Math.max(0, h)),
+    minutes: Math.min(59, Math.max(0, isNaN(m) ? 0 : m)),
+  };
+}
+
 export function parseEventEndDateTime(
   startDateStr?: string | null,
   endDateStr?: string | null,
-  endTimeStr?: string | null
+  endTimeStr?: string | null,
+  startTimeStr?: string | null
 ): Date | null {
   const targetDateStr = endDateStr || startDateStr;
   if (!targetDateStr) return null;
@@ -32,28 +51,30 @@ export function parseEventEndDateTime(
 
   let hours = 23;
   let minutes = 59;
-  let seconds = 59;
+  const seconds = 59;
 
-  if (endTimeStr) {
-    const cleanTime = endTimeStr.trim().toLowerCase();
-    const isPM = cleanTime.includes('pm');
-    const isAM = cleanTime.includes('am');
-    const digitsOnly = cleanTime.replace(/[^\d:]/g, '');
-    const parts = digitsOnly.split(':');
-    if (parts.length >= 1) {
-      let h = parseInt(parts[0], 10);
-      const m = parts.length >= 2 ? parseInt(parts[1], 10) : 0;
-      if (!isNaN(h)) {
-        if (isPM && h < 12) h += 12;
-        if (isAM && h === 12) h = 0;
-        hours = Math.min(23, Math.max(0, h));
-        minutes = Math.min(59, Math.max(0, isNaN(m) ? 0 : m));
-      }
-    }
+  const end = parseTimeOfDay(endTimeStr);
+  if (end) {
+    hours = end.hours;
+    minutes = end.minutes;
   }
 
   const d = new Date(`${dateOnly}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-  return isNaN(d.getTime()) ? null : d;
+  if (isNaN(d.getTime())) return null;
+
+  // Night events: an end time earlier than the start time (e.g. 8 PM to 2 AM) on the
+  // same date means the event finishes after midnight, i.e. on the NEXT day.
+  const start = parseTimeOfDay(startTimeStr);
+  if (end && start) {
+    const startDateOnly = (startDateStr || '').split('T')[0].split(' ')[0];
+    const endsOnStartDate = !endDateStr || dateOnly === startDateOnly;
+    const endsBeforeItStarts = end.hours * 60 + end.minutes < start.hours * 60 + start.minutes;
+    if (endsOnStartDate && endsBeforeItStarts) {
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
+  return d;
 }
 
 export function parseSalesDeadline(deadlineStr?: string | null): Date | null {
@@ -110,7 +131,7 @@ export function getEventLifecycle(
   const remainingTickets = totalTickets !== null ? Math.max(0, totalTickets - bookedTickets) : null;
 
   // 1. Check if event has ended
-  const endDateTime = parseEventEndDateTime(event.start_date, event.end_date, event.end_time);
+  const endDateTime = parseEventEndDateTime(event.start_date, event.end_date, event.end_time, event.start_time);
   if (endDateTime && endDateTime.getTime() < now.getTime()) {
     return {
       status: 'ended',

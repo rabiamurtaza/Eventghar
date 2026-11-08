@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
@@ -23,6 +24,38 @@ function validateImageFile(file: File, fieldName: string): string | null {
   }
   
   return null;
+}
+
+/** Price of one ticket of the given type; blank / free / unreadable counts as 0. */
+function ticketUnitPrice(ticket: any): number {
+  const n = parseFloat(String(ticket?.price ?? '0').replace(/,/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+/**
+ * Tickets already taken for an event (pending + verified), from the safe summary view.
+ * Returns null if the numbers could not be loaded, so the caller keeps what it had
+ * (the database still enforces the limits when a booking is saved).
+ */
+async function fetchTicketCounts(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<{ total: number; byTier: Record<string, number> } | null> {
+  const { data, error } = await supabase
+    .from('event_ticket_counts')
+    .select('ticket_type, tickets')
+    .eq('event_id', eventId);
+  if (error || !data) return null;
+
+  let total = 0;
+  const byTier: Record<string, number> = {};
+  data.forEach((row: any) => {
+    const count = Number(row.tickets) || 0;
+    total += count;
+    const tier = row.ticket_type || 'Standard';
+    byTier[tier] = (byTier[tier] || 0) + count;
+  });
+  return { total, byTier };
 }
 
 function normalizePhoneNumber(phone: string): string {
@@ -199,24 +232,10 @@ export default function BookTicketPage() {
         eventIdRef.current = eventData.id;
         setEvent(eventData);
 
-        // Fetch active bookings for capacity & tier inventory tracking
-        const { data: bookingsData } = await supabase
-          .from('bookings')
-          .select('ticket_type, number_of_tickets, status')
-          .eq('event_id', eventData.id)
-          .in('status', ['verified', 'confirmed', 'pending']);
-
-        let total = 0;
-        const byTier: Record<string, number> = {};
-        if (bookingsData) {
-          bookingsData.forEach((b: any) => {
-            const count = Number(b.number_of_tickets) || 1;
-            total += count;
-            const tType = b.ticket_type || 'Standard';
-            byTier[tType] = (byTier[tType] || 0) + count;
-          });
-        }
-        setTotalBooked(total);
+        // Tickets already taken (pending + verified), per ticket type, for capacity tracking
+        const counts = await fetchTicketCounts(supabase, eventData.id);
+        const byTier: Record<string, number> = counts ? counts.byTier : {};
+        setTotalBooked(counts ? counts.total : 0);
         setTierBookings(byTier);
 
         // This buyer's own active bookings for the event (always filtered by their email)
@@ -272,34 +291,24 @@ export default function BookTicketPage() {
     }
     if (id) init();
 
-    // Live inventory & event updates via Realtime
+    // Live inventory: refresh the ticket counts every 30 seconds while the page is open,
+    // and whenever the buyer returns to the tab (replaces a per-booking live feed).
+    const refreshCounts = async () => {
+      if (document.visibilityState !== "visible") return;
+      const currentEventId = eventIdRef.current;
+      if (!currentEventId) return;
+      const counts = await fetchTicketCounts(supabase, currentEventId);
+      if (counts) {
+        setTotalBooked(counts.total);
+        setTierBookings(counts.byTier);
+      }
+    };
+    const countsTimer = setInterval(refreshCounts, 30000);
+    document.addEventListener("visibilitychange", refreshCounts);
+
+    // Live event updates (an admin edits this event) via Realtime
     const channel = supabase
       .channel(`book-event-${id}-realtime`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookings" },
-        async () => {
-          const currentEventId = eventIdRef.current;
-          if (!currentEventId) return;
-          const { data: bData } = await supabase
-            .from('bookings')
-            .select('ticket_type, number_of_tickets, status')
-            .eq('event_id', currentEventId)
-            .in('status', ['verified', 'confirmed', 'pending']);
-          if (bData) {
-            let total = 0;
-            const byTier: Record<string, number> = {};
-            bData.forEach((b: any) => {
-              const count = Number(b.number_of_tickets) || 1;
-              total += count;
-              const tType = b.ticket_type || 'Standard';
-              byTier[tType] = (byTier[tType] || 0) + count;
-            });
-            setTotalBooked(total);
-            setTierBookings(byTier);
-          }
-        }
-      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
@@ -367,6 +376,8 @@ export default function BookTicketPage() {
     document.addEventListener("visibilitychange", handleProfileSync);
 
     return () => {
+      clearInterval(countsTimer);
+      document.removeEventListener("visibilitychange", refreshCounts);
       supabase.removeChannel(channel);
       window.removeEventListener("focus", handleProfileSync);
       document.removeEventListener("visibilitychange", handleProfileSync);
@@ -466,40 +477,30 @@ export default function BookTicketPage() {
       return;
     }
 
-    // Payment screenshot is compulsory for every booking.
-    if (!paymentScreenshot) {
+    // A payment screenshot is compulsory for paid tickets. Free tickets need no payment.
+    const needsPayment = ticketUnitPrice(selectedTicket) > 0;
+    if (needsPayment && !paymentScreenshot) {
       setErrorMsg("Payment screenshot is required.");
       setSubmitting(false);
       return;
     }
 
-    const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
-    if (paymentErr) {
-      setErrorMsg(paymentErr);
-      setSubmitting(false);
-      return;
+    if (paymentScreenshot) {
+      const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
+      if (paymentErr) {
+        setErrorMsg(paymentErr);
+        setSubmitting(false);
+        return;
+      }
     }
 
     const supabase = createClient();
 
-    // Verify latest database bookings at time of submission to prevent overselling
-    const { data: freshBookings } = await supabase
-      .from('bookings')
-      .select('ticket_type, number_of_tickets')
-      .eq('event_id', event.id)
-      .in('status', ['verified', 'confirmed', 'pending']);
-
-    let freshTotal = 0;
-    let freshTierTotal = 0;
-    if (freshBookings) {
-      freshBookings.forEach((b: any) => {
-        const count = Number(b.number_of_tickets) || 1;
-        freshTotal += count;
-        if (b.ticket_type === (ticketType || 'Standard')) {
-          freshTierTotal += count;
-        }
-      });
-    }
+    // Verify the latest ticket counts at the time of submission to prevent overselling
+    // (the database enforces the same limits again when the booking is saved)
+    const fresh = await fetchTicketCounts(supabase, event.id);
+    const freshTotal = fresh ? fresh.total : 0;
+    const freshTierTotal = fresh ? (fresh.byTier[ticketType || 'Standard'] || 0) : 0;
 
     const freshOverallRem = event.total_tickets ? Math.max(0, Number(event.total_tickets) - freshTotal) : null;
     const freshTierRem = selectedTierLimit !== null ? Math.max(0, selectedTierLimit - freshTierTotal) : null;
@@ -518,8 +519,8 @@ export default function BookTicketPage() {
     let studentIdUrl = null;
 
     try {
-      // Upload Payment Screenshot (required - validated above)
-      {
+      // Upload the payment screenshot (required for paid tickets - validated above)
+      if (paymentScreenshot) {
         const pExt = paymentScreenshot.name.split('.').pop();
         const pName = `payment-${Date.now()}-${Math.random().toString(36).substring(2)}.${pExt}`;
         const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, paymentScreenshot);
@@ -908,11 +909,11 @@ export default function BookTicketPage() {
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
               <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                Upload Payment Screenshot *
+                {ticketUnitPrice(selectedTicket) > 0 ? "Upload Payment Screenshot *" : "Payment Screenshot (not needed for free tickets)"}
               </label>
               <input
                 type="file"
-                required
+                required={ticketUnitPrice(selectedTicket) > 0}
                 accept="image/png, image/jpeg, image/jpg, image/webp" 
                 onChange={e => {
                   const file = e.target.files?.[0] || null;

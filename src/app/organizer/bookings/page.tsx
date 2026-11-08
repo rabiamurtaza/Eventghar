@@ -8,6 +8,7 @@ import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
+import { fetchAllRows } from "@/utils/fetchAll";
 
 export default function OrganizerBookingsPage() {
   const [session, setSession] = useState<any>(null);
@@ -46,14 +47,19 @@ export default function OrganizerBookingsPage() {
         return;
       }
 
-      const query = supabase
-        .from('bookings')
-        .select(`
-          *,
-          events!inner(id, title, organizer_id, event_number, ticket_price, ticket_types(name, price))
-        `)
-        .eq('events.organizer_id', session.user.id)
-        .order('created_at', { ascending: false });
+      // Bookings and tickets are loaded in pages of 1,000 so long lists are never cut off
+      const bookingsQuery = fetchAllRows((from, to) =>
+        supabase
+          .from('bookings')
+          .select(`
+            *,
+            events!inner(id, title, organizer_id, event_number, ticket_price, ticket_types(name, price))
+          `)
+          .eq('events.organizer_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to)
+      );
 
       const eventsQuery = supabase
         .from('events')
@@ -61,48 +67,59 @@ export default function OrganizerBookingsPage() {
         .eq('organizer_id', session.user.id)
         .eq('status', 'published');
 
-      const ticketsQuery = supabase
-        .from('issued_tickets')
-        .select(`
-          *,
-          events!inner(id, title, organizer_id, event_number)
-        `)
-        .eq('events.organizer_id', session.user.id)
-        .order('created_at', { ascending: false });
+      const ticketsQuery = fetchAllRows((from, to) =>
+        supabase
+          .from('issued_tickets')
+          .select(`
+            *,
+            events!inner(id, title, organizer_id, event_number)
+          `)
+          .eq('events.organizer_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to)
+      );
 
-      const [bookingsRes, eventsRes, ticketsRes] = await Promise.all([query, eventsQuery, ticketsQuery]);
-      
-      if (bookingsRes.data) {
+      const [bookingsRes, eventsRes, ticketsRes] = await Promise.all([bookingsQuery, eventsQuery, ticketsQuery]);
+
+      if (!bookingsRes.error) {
         setBookings(bookingsRes.data);
       }
       if (eventsRes.data) {
         setEventsList(eventsRes.data);
       }
-      if (ticketsRes.data) {
+      if (!ticketsRes.error) {
         setIssuedTickets(ticketsRes.data);
       }
       setLoading(false);
     }
-    
+
     fetchData();
 
     const supabase = createClient();
-    // Realtime subscription for organizer's bookings & gate attendance
+    // Realtime subscription for organizer's bookings & gate attendance.
+    // Changes that arrive close together (e.g. a busy gate scanning tickets) trigger ONE reload.
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReload = () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => fetchData(), 1500);
+    };
     const channel = supabase
       .channel("organizer-bookings-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bookings" },
-        () => fetchData()
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "issued_tickets" },
-        () => fetchData()
+        scheduleReload
       )
       .subscribe();
 
     return () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -112,17 +129,19 @@ export default function OrganizerBookingsPage() {
     setAttendanceLoading(true);
     const supabase = createClient();
 
-    const query = supabase
-      .from('issued_tickets')
-      .select(`
-        *,
-        events!inner(id, title, organizer_id, event_number)
-      `)
-      .eq('events.organizer_id', session.user.id)
-      .order('created_at', { ascending: false });
-
-    const { data } = await query;
-    if (data) {
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .from('issued_tickets')
+        .select(`
+          *,
+          events!inner(id, title, organizer_id, event_number)
+        `)
+        .eq('events.organizer_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to)
+    );
+    if (!error) {
       setIssuedTickets(data);
     }
     setAttendanceLoading(false);
