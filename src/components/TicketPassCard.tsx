@@ -114,6 +114,9 @@ export default function TicketPassCard({
       backgroundColor:
         typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "#1E2028" : "#FFFFFF",
       filter: excludeActionArea,
+      // The card is centred with "margin: auto". On a wide screen that resolves to a big pixel
+      // margin, which the picture would copy and push the ticket out of view (blank/half ticket).
+      style: { margin: "0", transform: "none" },
     };
 
     // Safari can draw a blank picture on the very first render; a throw-away first pass fixes that

@@ -3,6 +3,7 @@ import HeroSlider from "@/components/HeroSlider";
 import EventsSection from "@/components/EventsSection";
 import SectionHeader from "@/components/SectionHeader";
 import { siteConfig } from "@/config/site";
+import EmailLink from "@/components/EmailLink";
 
 const STEPS = [
   {
@@ -110,8 +111,7 @@ export default function Home() {
                   </span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
                 </a>
-                <a
-                  href={siteConfig.emailUrl}
+                <EmailLink
                   className="group flex h-16 items-center gap-4 rounded-full border border-white/30 bg-white/5 pl-3 pr-6 text-white transition-all duration-200 hover:bg-white hover:text-[#1c1230] hover:border-white hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2a1450]"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#7a1fd1] text-white">
@@ -125,7 +125,7 @@ export default function Home() {
                     <span className="block truncate font-semibold">{siteConfig.supportEmail}</span>
                   </span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
-                </a>
+                </EmailLink>
               </div>
             </div>
           </div>
