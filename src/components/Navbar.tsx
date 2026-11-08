@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
+import { LiquidGlassCard } from "@/components/uilayouts/liquid-glass";
+import { siteConfig } from "@/config/site";
 
 export default function Navbar() {
   const [isUserOpen, setIsUserOpen] = useState(false);
@@ -18,13 +20,25 @@ export default function Navbar() {
 
   // Track scroll position to transition from floating glass to solid bar
   useEffect(() => {
+    // The bar sits ~72px from the top. Only switch to the light style once the
+    // dark hero has fully scrolled out from behind it (not after a fixed 80px).
+    const BAR_BOTTOM = 72;
     function handleScroll() {
-      setIsScrolled(window.scrollY > 80);
+      const hero = document.getElementById("home-hero");
+      if (hero) {
+        setIsScrolled(hero.getBoundingClientRect().bottom <= BAR_BOTTOM);
+      } else {
+        setIsScrolled(window.scrollY > 80);
+      }
     }
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [pathname]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -92,33 +106,54 @@ export default function Navbar() {
   return (
     <>
       <header className="fixed top-2.5 sm:top-4 left-0 right-0 z-50 flex justify-center px-2 sm:px-6 pointer-events-none transition-all duration-300 max-w-full">
-        <div
-          className={`pointer-events-auto w-full max-w-6xl rounded-full px-2.5 sm:px-6 py-1.5 sm:py-2.5 transition-all duration-300 flex items-center justify-between shadow-lg ${
-            isGlass
-              ? "bg-white/15 backdrop-blur-md border border-white/20 text-white"
-              : "bg-white/95 backdrop-blur-md border border-neutral-200/90 text-[#1c1230] shadow-xl"
+        <LiquidGlassCard
+          draggable={false}
+          borderRadius="9999px"
+          blurIntensity="xl"
+          glowIntensity="sm"
+          shadowIntensity="sm"
+          className={`pointer-events-auto w-full max-w-4xl transition-colors duration-300 ${
+            isGlass ? "bg-white/10 text-white" : "bg-white/40 text-[#1c1230]"
           }`}
         >
+        <div className="relative z-30 flex w-full items-center justify-between px-2.5 sm:px-6 py-1.5 sm:py-2.5">
           {/* Left Side: Text-Based Wordmark "EventGhar" */}
           <div className="flex items-center min-w-0 shrink-0">
             <Link
               href="/"
-              className="transition hover:opacity-90 font-heading select-none flex items-center"
+              className="transition hover:opacity-90 font-logo select-none flex items-center"
               aria-label="EventGhar Home"
             >
-              <span className="text-[17px] xs:text-xl sm:text-2xl font-black tracking-tight whitespace-nowrap leading-none flex items-center">
+              <span className="text-[17px] xs:text-xl sm:text-2xl font-bold tracking-tight whitespace-nowrap leading-none flex items-center">
                 <span className={isGlass ? "text-white" : "text-[#1c1230]"}>Event</span>
                 <span className={isGlass ? "text-purple-300" : "text-[#7a1fd1]"}>Ghar</span>
               </span>
             </Link>
           </div>
 
+          {/* Center: navigation links (desktop only) */}
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-1 lg:gap-2" aria-label="Main">
+            {siteConfig.navLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition whitespace-nowrap ${
+                  isGlass
+                    ? "text-white/90 hover:text-white hover:bg-white/10"
+                    : "text-[#1c1230] hover:text-[#7a1fd1] hover:bg-neutral-100"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
           {/* Right Side: Navigation & User Controls */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Explore Option */}
             <Link
               href="/#events"
-              className={`rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition whitespace-nowrap ${
+              className={`md:hidden rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition whitespace-nowrap ${
                 isGlass
                   ? "text-white/90 hover:text-white hover:bg-white/10"
                   : "text-[#1c1230] hover:text-[#7a1fd1] hover:bg-neutral-100"
@@ -173,7 +208,7 @@ export default function Navbar() {
                 onClick={() => setIsUserOpen((prev) => !prev)}
                 className={`flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#7a1fd1] cursor-pointer shrink-0 ${
                   isGlass
-                    ? "bg-white/20 text-white hover:bg-white/30 backdrop-blur-md border border-white/20"
+                    ? "bg-white/20 text-white hover:bg-white/30 border border-white/20"
                     : "bg-neutral-100 text-[#1c1230] hover:bg-neutral-200 border border-neutral-200"
                 }`}
                 title={isUserOpen ? "Close menu" : "Account Options"}
@@ -213,7 +248,7 @@ export default function Navbar() {
 
               {/* Dropdown Menu */}
               {isUserOpen && (
-                <div className="absolute right-0 mt-2.5 w-52 rounded-2xl border border-neutral-200 bg-white p-2 shadow-2xl z-50 text-[#1c1230] animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-2.5 w-52 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg z-50 text-[#1c1230] animate-in fade-in zoom-in-95 duration-150">
                   {session ? (
                     <>
                       <div className="px-3 py-2 text-xs font-semibold text-neutral-400 border-b border-neutral-100 mb-1">
@@ -290,6 +325,7 @@ export default function Navbar() {
             </div>
           </div>
         </div>
+        </LiquidGlassCard>
       </header>
 
       {/* Top Spacer only on subpages so content is never obscured by fixed navbar */}

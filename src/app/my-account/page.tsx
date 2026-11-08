@@ -567,7 +567,7 @@ export default function MyAccountPage() {
                       <div 
                         key={evt.id}
                         onClick={() => setSelectedEventModal(evt)}
-                        className="group cursor-pointer border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden bg-white dark:bg-neutral-900 shadow-sm hover:shadow-md hover:border-indigo-500/50 dark:hover:border-indigo-500/50 transition flex flex-col"
+                        className="group cursor-pointer border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden bg-white dark:bg-neutral-900 shadow-sm hover:shadow-md hover:border-indigo-500/50 dark:hover:border-indigo-500/50 transition flex flex-col"
                       >
                         <div className="relative aspect-video w-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
                           {evt.image_url ? (
@@ -589,7 +589,7 @@ export default function MyAccountPage() {
                             {evt.status || 'Draft'}
                           </span>
                           {evt.event_number && (
-                            <span className="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-white border border-white/20">
+                            <span className="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded bg-black/60 text-white border border-white/20">
                               #{evt.event_number}
                             </span>
                           )}
@@ -648,10 +648,10 @@ export default function MyAccountPage() {
 
             {/* Event Details Modal */}
             {selectedEventModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-lg p-6 sm:p-8">
                   {selectedEventModal.image_url && (
-                    <div className="relative aspect-video w-full rounded-2xl overflow-hidden mb-6 bg-neutral-100 dark:bg-neutral-800">
+                    <div className="relative aspect-video w-full rounded-lg overflow-hidden mb-6 bg-neutral-100 dark:bg-neutral-800">
                       <img src={selectedEventModal.image_url} alt={selectedEventModal.title} className="w-full h-full object-cover" />
                       <span className={`absolute top-3 left-3 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
                         selectedEventModal.status === 'published' ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'
@@ -659,7 +659,7 @@ export default function MyAccountPage() {
                         {selectedEventModal.status || 'Draft'}
                       </span>
                       {selectedEventModal.event_number && (
-                        <span className="absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-white">
+                        <span className="absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full bg-black/70 text-white">
                           Event #{selectedEventModal.event_number}
                         </span>
                       )}
@@ -685,7 +685,7 @@ export default function MyAccountPage() {
                     </button>
                   </div>
 
-                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800">
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-neutral-50 dark:bg-neutral-800/50 p-4 rounded-lg border border-neutral-100 dark:border-neutral-800">
                     <div>
                       <p className="text-xs font-semibold text-neutral-400 uppercase">Starts</p>
                       <p className="font-bold text-neutral-900 dark:text-white mt-0.5">
@@ -821,7 +821,7 @@ export default function MyAccountPage() {
 
                     {/* Pending Verification Notice (At Top) */}
                     {selectedEventForTickets.pendingCount > 0 && (
-                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center shrink-0">
+                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 text-center shrink-0">
                         <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 mb-2">
                           Verification Pending
                         </span>
@@ -845,7 +845,7 @@ export default function MyAccountPage() {
 
                     {/* Rejected Notice (At Top) */}
                     {selectedEventForTickets.rejectedCount > 0 && (
-                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center shrink-0">
+                      <div className="w-full max-w-[340px] mx-auto p-4 mb-8 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-center shrink-0">
                         <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 mb-2">
                           Booking Not Verified
                         </span>

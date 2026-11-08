@@ -299,7 +299,7 @@ export default function AdminEditEvent() {
   if (eventNotFound) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-2xl p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg p-8 text-center shadow-lg border border-neutral-200 dark:border-neutral-800">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -367,7 +367,7 @@ export default function AdminEditEvent() {
         >
           
           {/* Section 1: Basic Info */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">1. Basic Information</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -410,7 +410,7 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 2: Dates & Times */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">2. Dates & Times</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -441,7 +441,7 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 3: Location & Venue */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">3. Location & Venue</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -460,7 +460,7 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 4: Ticketing & Capacity */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">4. Ticketing & Capacity</h2>
             
             <div className="mb-8">
@@ -522,7 +522,7 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 5: Payment Info */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">5. Payment Information</h2>
             <div className="space-y-4">
               {paymentAccounts.map((acc, index) => (
@@ -560,7 +560,7 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 6: Rules & Terms */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">6. Rules & Terms</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -571,7 +571,7 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 7: Organizer & Status (Admin Settings) */}
-          <div className="bg-neutral-100 dark:bg-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 dark:border-neutral-700 shadow-inner">
+          <div className="bg-neutral-100 dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-300 dark:border-neutral-700 shadow-inner">
             <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-300 dark:border-neutral-700 pb-2 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-neutral-500">
                 <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
@@ -677,11 +677,11 @@ export default function AdminEditEvent() {
       {isDeleteModalOpen && (
         <div
           onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-2xl text-[#1c1230] dark:text-white animate-in zoom-in-95 duration-150"
+            className="w-full max-w-md rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 shadow-lg text-[#1c1230] dark:text-white animate-in zoom-in-95 duration-150"
           >
             <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
               <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-950/60 flex items-center justify-center shrink-0">

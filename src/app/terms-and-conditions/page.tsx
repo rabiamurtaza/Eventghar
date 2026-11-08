@@ -4,7 +4,7 @@ import { SUPPORT_EMAIL } from "@/config/site";
 export default function TermsAndConditionsPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-neutral-950 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto bg-white dark:bg-neutral-900 rounded-3xl border border-slate-200 dark:border-neutral-800 p-8 sm:p-12 shadow-sm">
+      <div className="max-w-3xl mx-auto bg-white dark:bg-neutral-900 rounded-lg border border-slate-200 dark:border-neutral-800 p-8 sm:p-12 shadow-sm">
         <div className="border-b border-slate-100 dark:border-neutral-800 pb-6 mb-8">
           <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
             Legal & Policies

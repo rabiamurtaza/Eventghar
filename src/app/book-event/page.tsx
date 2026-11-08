@@ -101,7 +101,7 @@ export default function BookEventPage() {
         </div>
 
         {message?.type === 'success' ? (
-          <div className="mb-8 p-8 rounded-2xl bg-white border border-green-200 shadow-sm text-center">
+          <div className="mb-8 p-8 rounded-lg bg-white border border-green-200 shadow-sm text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-4">
               <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -119,7 +119,7 @@ export default function BookEventPage() {
             )}
 
             {/* The Form */}
-            <form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 sm:p-8 rounded-lg border border-slate-200 shadow-sm">
               
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 

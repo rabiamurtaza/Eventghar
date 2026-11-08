@@ -538,7 +538,7 @@ export default function AdminBookingsPage() {
           </div>
 
           {/* Table Area */}
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden shadow-sm">
             {loading ? (
               <div className="p-12 text-center text-neutral-500">Loading bookings...</div>
             ) : filteredBookings.length === 0 ? (
@@ -784,7 +784,7 @@ export default function AdminBookingsPage() {
           </div>
 
           {/* Attendance Table */}
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden shadow-sm">
             {attendanceLoading ? (
               <div className="p-12 text-center text-neutral-500">Loading attendance data...</div>
             ) : filteredAttendance.length === 0 ? (
@@ -881,11 +881,11 @@ export default function AdminBookingsPage() {
       {previewImage && (
         <div 
           onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="relative max-h-[90vh] max-w-2xl w-full bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col"
+            className="relative max-h-[90vh] max-w-2xl w-full bg-white dark:bg-neutral-900 rounded-lg overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800 flex flex-col"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">

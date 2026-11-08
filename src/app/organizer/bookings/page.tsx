@@ -419,7 +419,7 @@ export default function OrganizerBookingsPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
               <table className="w-full text-left text-sm text-neutral-600 dark:text-neutral-400">
                 <thead className="border-b border-neutral-200 bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/50">
                   <tr>
@@ -575,7 +575,7 @@ export default function OrganizerBookingsPage() {
             </div>
 
             {/* Attendance Table */}
-            <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
               {attendanceLoading ? (
                 <div className="p-12 text-center text-neutral-500">Loading attendance data...</div>
               ) : filteredAttendance.length === 0 ? (
