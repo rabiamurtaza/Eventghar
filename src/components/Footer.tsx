@@ -49,7 +49,7 @@ export default function Footer() {
             </p>
             <p className="text-sm flex items-center text-gray-400">
               <Mail className="h-4 w-4 mr-2" />
-              <a href={`mailto:${siteConfig.supportEmail}`} className="hover:text-white transition-colors duration-200">
+              <a href={siteConfig.emailUrl} className="hover:text-white transition-colors duration-200">
                 {siteConfig.supportEmail}
               </a>
             </p>
