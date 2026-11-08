@@ -142,7 +142,7 @@ export default function AdminDashboardPage() {
         {/* Metric 1 */}
         <Link 
           href="/admin/published"
-          className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
+          className="bg-white dark:bg-neutral-900 p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Total Events</span>
@@ -159,7 +159,7 @@ export default function AdminDashboardPage() {
         {/* Metric 2: Manage Bookings & Tickets */}
         <Link 
           href="/admin/bookings"
-          className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
+          className="bg-white dark:bg-neutral-900 p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Manage Bookings</span>
@@ -178,7 +178,7 @@ export default function AdminDashboardPage() {
         {/* Metric 3: Active Organizers */}
         <Link 
           href="/admin/organizers"
-          className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
+          className="bg-white dark:bg-neutral-900 p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Users & Organizers</span>
@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
         {/* Metric 4: Event Requests */}
         <Link 
           href="/admin/requests"
-          className="bg-white dark:bg-neutral-900 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
+          className="bg-white dark:bg-neutral-900 p-6 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm flex flex-col hover:border-indigo-400 dark:hover:border-indigo-500 transition group"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Event Requests</span>
@@ -213,7 +213,7 @@ export default function AdminDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/admin/organizers"
-            className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
+            className="p-5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Directory</span>
@@ -225,7 +225,7 @@ export default function AdminDashboardPage() {
 
           <Link
             href="/admin/bookings"
-            className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
+            className="p-5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Bookings</span>
@@ -237,7 +237,7 @@ export default function AdminDashboardPage() {
 
           <Link
             href="/admin/published"
-            className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
+            className="p-5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-400">Events</span>
@@ -249,7 +249,7 @@ export default function AdminDashboardPage() {
 
           <Link
             href="/admin/requests"
-            className="p-5 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
+            className="p-5 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-indigo-500 hover:shadow-md transition group"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">Requests</span>

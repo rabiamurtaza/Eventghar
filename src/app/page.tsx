@@ -1,6 +1,23 @@
 import Link from "next/link";
 import HeroSlider from "@/components/HeroSlider";
 import EventsSection from "@/components/EventsSection";
+import SectionHeader from "@/components/SectionHeader";
+import { siteConfig } from "@/config/site";
+
+const STEPS = [
+  {
+    title: "Pick an event",
+    body: "Find an event you like and tap it. Log in when you are ready to book.",
+  },
+  {
+    title: "Pay and send the receipt",
+    body: "Pay by Easypaisa, JazzCash or bank transfer, then upload a screenshot.",
+  },
+  {
+    title: "Get your ticket",
+    body: "Once your payment is confirmed, your QR ticket appears in My Account. Show it at the gate.",
+  },
+];
 
 export default function Home() {
   return (
@@ -14,91 +31,102 @@ export default function Home() {
         <EventsSection />
 
         {/* Section: How booking works */}
-        <section aria-labelledby="how-booking-works-heading" className="pt-2 sm:pt-4 w-full">
-          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
-            <h2
-              id="how-booking-works-heading"
-              className="text-2xl sm:text-3xl font-heading font-extrabold text-[#1c1230]"
-            >
-              How booking works
-            </h2>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 font-sans">
-              Three steps, and you can do it all from your phone.
-            </p>
-          </div>
+        <section id="how-it-works" aria-labelledby="how-booking-works-heading" className="w-full scroll-mt-24">
+          <SectionHeader
+            title="How booking works"
+            subtitle="Three easy steps, all from your phone."
+            titleId="how-booking-works-heading"
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-8">
-            {/* Step 1 */}
-            <div className="bg-white border border-neutral-200/80 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#f6effd] text-[#7a1fd1] font-heading font-black text-xl flex items-center justify-center mb-5">
-                  1
-                </div>
-                <h3 className="font-heading font-bold text-lg text-[#1c1230] mb-2">
-                  Choose an event
+          <ol className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+            {STEPS.map((step, i) => (
+              <li
+                key={step.title}
+                className="bg-white border border-neutral-200/90 rounded-3xl p-6 sm:p-8 shadow-sm"
+              >
+                <span
+                  aria-hidden="true"
+                  className="font-serif-display block text-6xl sm:text-7xl leading-none text-[#7a1fd1] mb-5"
+                >
+                  {i + 1}
+                </span>
+                <h3 className="font-heading font-semibold text-xl sm:text-2xl text-[#1c1230] mb-2">
+                  {step.title}
                 </h3>
-                <p className="text-sm text-gray-600 font-sans leading-relaxed">
-                  Open any event to see the date, place and price. Log in with your Google account when you’re ready to book.
+                <p className="text-base text-neutral-600 font-body leading-relaxed">
+                  {step.body}
                 </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="bg-white border border-neutral-200/80 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#f6effd] text-[#7a1fd1] font-heading font-black text-xl flex items-center justify-center mb-5">
-                  2
-                </div>
-                <h3 className="font-heading font-bold text-lg text-[#1c1230] mb-2">
-                  Pay and upload your receipt
-                </h3>
-                <p className="text-sm text-gray-600 font-sans leading-relaxed">
-                  Send the money by Easypaisa, JazzCash or bank transfer, then upload a screenshot of the payment.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="bg-white border border-neutral-200/80 rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-[#f6effd] text-[#7a1fd1] font-heading font-black text-xl flex items-center justify-center mb-5">
-                  3
-                </div>
-                <h3 className="font-heading font-bold text-lg text-[#1c1230] mb-2">
-                  Get your ticket
-                </h3>
-                <p className="text-sm text-gray-600 font-sans leading-relaxed">
-                  Once the organizer confirms your payment, your QR ticket will appear in My Account under My Tickets. Show it at the gate.
-                </p>
-              </div>
-            </div>
-          </div>
+              </li>
+            ))}
+          </ol>
         </section>
 
-        {/* Section: Running an event? */}
-        <section
-          aria-labelledby="running-event-heading"
-          className="bg-[#2a1450] text-white rounded-3xl p-6 sm:p-12 shadow-xl border border-purple-500/20 relative overflow-hidden w-full"
-        >
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="max-w-xl">
-              <h2
-                id="running-event-heading"
-                className="text-2xl sm:text-3xl font-heading font-extrabold text-white mb-2"
-              >
-                Running an event?
-              </h2>
-              <p className="text-purple-100/90 text-sm sm:text-base font-sans leading-relaxed">
-                Tell us about it. We’ll set up your event page, take bookings and check tickets at the gate.
-              </p>
-            </div>
-            <div className="flex-shrink-0">
-              <Link
-                href="/book-event"
-                className="inline-flex items-center justify-center px-6 py-3.5 rounded-full font-heading font-semibold text-[#1c1230] bg-white hover:bg-neutral-100 transition-all duration-200 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#2a1450]"
-              >
-                Request an event
-              </Link>
+        {/* Section: Running an event? (virtual card with contact details) */}
+        <section aria-labelledby="running-event-heading" className="w-full pb-4">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#3a1a6e] via-[#2a1450] to-[#160b28] p-6 sm:p-10 lg:p-12 text-white shadow-xl ring-1 ring-white/10">
+            {/* Decorative card circles */}
+            <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#7a1fd1]/40" />
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-white/5" />
+
+            <div className="relative z-10 grid gap-8 md:grid-cols-5 md:gap-12 md:items-center">
+              {/* Left: message + main button */}
+              <div className="md:col-span-3">
+                <p className="mb-4 inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-purple-100">
+                  For organizers
+                </p>
+                <h2
+                  id="running-event-heading"
+                  className="font-serif-display text-3xl sm:text-4xl lg:text-5xl font-medium leading-[1.08] text-white mb-4"
+                >
+                  Running an event?
+                </h2>
+                <p className="max-w-md text-purple-100/90 text-sm sm:text-base font-sans leading-relaxed mb-7">
+                  Tell us about it. We’ll set up your event page, take bookings and check tickets at the gate.
+                </p>
+                <Link
+                  href="/book-event"
+                  className="inline-flex items-center justify-center rounded-full bg-white px-7 py-3.5 font-body font-semibold text-[#1c1230] shadow-md transition-all duration-200 hover:bg-neutral-100 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#2a1450]"
+                >
+                  Request an event
+                </Link>
+              </div>
+
+              {/* Right: tap-to-contact tiles */}
+              <div className="md:col-span-2 flex flex-col gap-3">
+                <a
+                  href={siteConfig.whatsapp.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex h-16 items-center gap-4 rounded-full bg-[#25D366] pl-3 pr-6 text-[#052e16] shadow-lg shadow-black/20 transition-all duration-200 hover:bg-[#2fe574] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2a1450]"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#128C4A]">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block text-xs font-medium text-[#052e16]/70">Chat on WhatsApp</span>
+                    <span className="block font-semibold tabular-nums">{siteConfig.whatsapp.display}</span>
+                  </span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                </a>
+                <a
+                  href={`mailto:${siteConfig.supportEmail}`}
+                  className="group flex h-16 items-center gap-4 rounded-full border border-white/30 bg-white/5 pl-3 pr-6 text-white transition-all duration-200 hover:bg-white hover:text-[#1c1230] hover:border-white hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#2a1450]"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#7a1fd1] text-white">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="m3 7 9 6 9-6" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block text-xs font-medium opacity-70">Email us</span>
+                    <span className="block truncate font-semibold">{siteConfig.supportEmail}</span>
+                  </span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                </a>
+              </div>
             </div>
           </div>
         </section>

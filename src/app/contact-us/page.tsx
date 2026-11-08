@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import { siteConfig } from "@/config/site";
 
 import { SUPPORT_WHATSAPP, SUPPORT_EMAIL } from "@/config/site";
 
@@ -135,7 +136,7 @@ export default function ContactUsPage() {
         </div>
 
         {submitted ? (
-          <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-slate-200 dark:border-neutral-800 p-8 sm:p-12 text-center shadow-sm max-w-xl mx-auto animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg border border-slate-200 dark:border-neutral-800 p-8 sm:p-12 text-center shadow-sm max-w-xl mx-auto animate-in fade-in duration-300">
             <div className="w-16 h-16 bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
               ✓
             </div>
@@ -170,7 +171,7 @@ export default function ContactUsPage() {
             
             {/* Left: Contact Info Sidebar */}
             <div className="space-y-6">
-              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-slate-200 dark:border-neutral-800 p-6 shadow-sm">
+              <div className="bg-white dark:bg-neutral-900 rounded-lg border border-slate-200 dark:border-neutral-800 p-6 shadow-sm">
                 <h3 className="font-bold text-base text-slate-900 dark:text-white mb-4">
                   Direct Channels
                 </h3>
@@ -218,14 +219,14 @@ export default function ContactUsPage() {
               </div>
 
               {/* Tips block */}
-              <div className="bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-100 dark:border-purple-900/50 p-6 text-xs text-purple-900 dark:text-purple-300 leading-relaxed">
+              <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-100 dark:border-purple-900/50 p-6 text-xs text-purple-900 dark:text-purple-300 leading-relaxed">
                 <p className="font-bold text-sm mb-1 text-purple-950 dark:text-purple-200">Payment Verification Tip</p>
                 If your payment screenshot is taking longer to verify, please allow up to 2 hours during peak event times. You can also contact us with your booking email.
               </div>
             </div>
 
             {/* Right: Contact Form */}
-            <div className="md:col-span-2 bg-white dark:bg-neutral-900 rounded-3xl border border-slate-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
+            <div className="md:col-span-2 bg-white dark:bg-neutral-900 rounded-lg border border-slate-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">
                 Send Us a Message
               </h2>

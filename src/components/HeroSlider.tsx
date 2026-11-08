@@ -351,25 +351,24 @@ export default function HeroSlider() {
     <div className="w-full">
       {/* Hero Section Container (Full bleed edge-to-edge, no border, no rounded corners) */}
       <section
+        id="home-hero"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full h-[440px] sm:h-[500px] lg:h-[560px] overflow-hidden select-none cursor-grab active:cursor-grabbing bg-neutral-950 flex flex-col justify-center items-center"
+        className="relative w-full h-[588px] sm:h-[630px] lg:h-[714px] overflow-hidden select-none touch-pan-y cursor-grab active:cursor-grabbing bg-neutral-950"
       >
         {/* Fallback Background (when no images exist yet) */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-neutral-900 to-black z-0" />
 
-        {/* Loading Indicator for Hero Images */}
+        {/* Skeleton while hero images load (sits behind the gradient and text) */}
         {loadingImages && (
-          <div className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/50 backdrop-blur-xs transition-opacity duration-300 pointer-events-none">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mb-2" />
-            <span className="text-[11px] font-semibold text-neutral-300 tracking-wider uppercase">
-              Loading Highlights...
-            </span>
-          </div>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 z-[5] pointer-events-none animate-pulse bg-gradient-to-r from-neutral-800 via-neutral-700 to-neutral-800 motion-reduce:animate-none"
+          />
         )}
 
         {/* Sliding Background Images with smooth crossfade */}
@@ -383,17 +382,55 @@ export default function HeroSlider() {
           />
         ))}
 
-        {/* Dark Centered Vignette Overlay for perfect text legibility */}
-        <div className="absolute inset-0 bg-black/45 pointer-events-none z-10" />
+        {/* Directional gradient: dark at the bottom on mobile, dark on the left on desktop */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-t from-black/85 via-black/40 to-black/10 lg:bg-gradient-to-r lg:from-black/85 lg:via-black/45 lg:to-black/5"
+        />
 
-        {/* Foreground Hero Text Content (Centered) */}
-        <div className="relative z-20 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-none pt-10 sm:pt-14 flex flex-col items-center justify-center">
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white drop-shadow-md font-heading leading-tight max-w-3xl">
-            Discover and Experience, Great Events
-          </h1>
-          <p className="mt-3 sm:mt-4 text-sm sm:text-lg lg:text-xl text-neutral-200 font-normal drop-shadow leading-relaxed font-body max-w-2xl mx-auto">
-            Find the latest concerts, sports, fun parties, and trips happening near you.
-          </p>
+        {/* Foreground Hero Text Content (left aligned) */}
+        <div className="relative z-20 flex w-full h-full items-end lg:items-center">
+          <div className="w-full max-w-3xl px-5 pb-16 pt-24 sm:px-8 lg:px-14 lg:py-24 text-left">
+            <div
+              className="animate-fade-up mb-5 inline-block rounded-sm bg-[#7a1fd1] px-3 py-1.5"
+              style={{ animationDelay: "0.1s" }}
+            >
+              <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-white">
+                Tickets &amp; events
+              </p>
+            </div>
+            <h1
+              className="animate-fade-up font-serif-display text-5xl sm:text-6xl lg:text-7xl font-medium leading-[1.04] text-white text-balance"
+              style={{ animationDelay: "0.2s" }}
+            >
+              Discover and Experience, Great Events
+            </h1>
+            <p
+              className="animate-fade-up mt-6 max-w-xl text-[15px] sm:text-base lg:text-lg leading-relaxed text-white/80 font-body"
+              style={{ animationDelay: "0.32s" }}
+            >
+              Find the latest concerts, sports, fun parties, and trips happening near you.
+            </p>
+            <div
+              className="animate-fade-up mt-9 flex flex-col gap-3 sm:flex-row"
+              style={{ animationDelay: "0.44s" }}
+            >
+              <a
+                href="#events"
+                onMouseDown={(e) => e.stopPropagation()}
+                className="inline-flex h-14 items-center justify-center rounded-xl bg-[#7a1fd1] px-9 text-[13px] font-medium uppercase tracking-[0.14em] text-white transition-[background-color,transform] duration-200 hover:bg-[#6114ae] hover:-translate-y-px active:scale-[0.98] motion-reduce:transition-colors"
+              >
+                Browse events
+              </a>
+              <a
+                href="/book-event"
+                onMouseDown={(e) => e.stopPropagation()}
+                className="inline-flex h-14 items-center justify-center rounded-xl border border-white/40 bg-transparent px-9 text-[13px] font-medium uppercase tracking-[0.14em] text-white transition-[background-color,border-color,transform] duration-200 hover:border-white hover:bg-white/10 hover:-translate-y-px active:scale-[0.98] motion-reduce:transition-colors"
+              >
+                Host an event
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Non-Clickable Dot Indicators at Bottom Center */}
@@ -417,7 +454,7 @@ export default function HeroSlider() {
       {isAdmin && (
         <div className="bg-neutral-900 border-b border-neutral-800 py-3 px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 text-neutral-300">
-            <span className="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">
+            <span className="font-semibold text-indigo-400 uppercase tracking-wider text-[11px]">
               Admin Controls:
             </span>
             <span>
@@ -451,7 +488,7 @@ export default function HeroSlider() {
                 type="button"
                 disabled={deleting || uploading}
                 onClick={() => setShowDeleteConfirm(true)}
-                className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold px-3 py-1.5 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold px-3 py-1.5 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
                 title="Delete the currently displayed hero image"
               >
                 <span>🗑️</span>
@@ -463,7 +500,7 @@ export default function HeroSlider() {
               type="button"
               disabled={uploading || deleting}
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold px-3.5 py-1.5 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold px-3.5 py-1.5 transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               {uploading ? (
                 <>
@@ -483,12 +520,12 @@ export default function HeroSlider() {
 
       {/* Confirmation Dialog for Deleting Hero Image */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5 max-w-sm w-full shadow-lg text-center">
             <div className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 mx-auto flex items-center justify-center text-lg mb-3">
               🗑️
             </div>
-            <h4 className="text-base font-bold text-white mb-1">Delete Hero Image?</h4>
+            <h4 className="text-base font-semibold text-white mb-1">Delete Hero Image?</h4>
             <p className="text-xs text-neutral-300 mb-5 leading-relaxed">
               Delete this hero image? This cannot be undone.
             </p>
@@ -505,7 +542,7 @@ export default function HeroSlider() {
                 type="button"
                 disabled={deleting}
                 onClick={handleConfirmDelete}
-                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold py-2.5 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-semibold py-2.5 transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {deleting ? (
                   <>
