@@ -9,10 +9,19 @@ import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
 import { fetchAllRows } from "@/utils/fetchAll";
+import dynamic from "next/dynamic";
+import BookingKindSwitch, { type BookingKind } from "@/components/offline/BookingKindSwitch";
+
+// Loaded only when "Offline bookings" is opened, so the Online side is not slowed down
+const OfflineBookingsPanel = dynamic(() => import("@/components/offline/OfflineBookingsPanel"), {
+  loading: () => <div className="p-12 text-center text-neutral-500">Loading offline tickets...</div>,
+});
 
 export default function AdminBookingsPage() {
   // Main View Switcher
   const [activeMainTab, setActiveMainTab] = useState<"bookings" | "attendance">("bookings");
+  // Online bookings (everything this page always showed) or Offline bookings (printed cash tickets)
+  const [bookingKind, setBookingKind] = useState<BookingKind>("online");
 
   // Bookings State
   const [bookings, setBookings] = useState<any[]>([]);
@@ -353,6 +362,21 @@ export default function AdminBookingsPage() {
   const totalUnscanned = issuedTickets.filter(t => t.status === 'valid').length;
   const attendanceRate = totalTicketsIssued > 0 ? Math.round((totalScanned / totalTicketsIssued) * 100) : 0;
 
+  if (bookingKind === "offline") {
+    return (
+      <div className="p-6 sm:p-10">
+        <div className="mb-6">
+          <h1 className="text-3xl font-extrabold text-neutral-900 dark:text-white">Manage Bookings</h1>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            Printed cash tickets: generate, print, scan at the gate and track them for any event.
+          </p>
+        </div>
+        <BookingKindSwitch value={bookingKind} onChange={setBookingKind} />
+        <OfflineBookingsPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 sm:p-10">
       
@@ -411,6 +435,8 @@ export default function AdminBookingsPage() {
           )}
         </div>
       </div>
+
+      <BookingKindSwitch value={bookingKind} onChange={setBookingKind} />
 
       {/* Main Mode Toggle: Bookings vs Gate Attendance */}
       <div className="mb-8 flex overflow-x-auto no-scrollbar border-b border-neutral-200 dark:border-neutral-800">
