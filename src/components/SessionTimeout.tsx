@@ -67,10 +67,10 @@ export default function SessionTimeout() {
 
       if (!isActive) return;
 
-      // 3 hours for admins and organizers (gate staff scan for long periods without
+      // 2 hours for admins and organizers (gate staff scan for long periods without
       // touching the screen), 15 minutes for regular users
       currentTimeoutDuration = role === 'admin' || role === 'organizer'
-        ? 3 * 60 * 60 * 1000
+        ? 2 * 60 * 60 * 1000
         : 15 * 60 * 1000;
 
       markActivity();
