@@ -44,10 +44,11 @@ export default function EventsSection() {
           .select('*, ticket_types(*)')
           .eq('status', 'published')
           .order('created_at', { ascending: false }),
+        // Safe summary (one row per event + ticket type, totals only). It never hits the
+        // 1,000-row limit and exposes no buyer details.
         supabase
-          .from('bookings')
-          .select('event_id, number_of_tickets, status')
-          .in('status', ['verified', 'confirmed', 'pending'])
+          .from('event_ticket_counts')
+          .select('event_id, tickets')
       ]);
 
       if (eventsRes.data) {
@@ -58,7 +59,7 @@ export default function EventsSection() {
         const counts: Record<string, number> = {};
         bookingsRes.data.forEach((b: any) => {
           if (b.event_id) {
-            counts[b.event_id] = (counts[b.event_id] || 0) + (Number(b.number_of_tickets) || 1);
+            counts[b.event_id] = (counts[b.event_id] || 0) + (Number(b.tickets) || 0);
           }
         });
         setBookingsMap(counts);
@@ -70,7 +71,7 @@ export default function EventsSection() {
   useEffect(() => {
     fetchEvents();
 
-    // Realtime subscription for live event updates and ticket counts
+    // Realtime subscription for live event updates (an admin edits or publishes an event)
     const channel = supabase
       .channel("events-homepage-realtime")
       .on(
@@ -80,16 +81,19 @@ export default function EventsSection() {
           fetchEvents();
         }
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bookings" },
-        () => {
-          fetchEvents();
-        }
-      )
       .subscribe();
 
+    // Ticket counts: refresh every minute and whenever the visitor returns to the tab.
+    // (One lightweight request instead of every open page reloading on every booking.)
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") fetchEvents();
+    };
+    const timer = setInterval(refreshIfVisible, 60000);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
     return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
       supabase.removeChannel(channel);
     };
   }, [fetchEvents, supabase]);

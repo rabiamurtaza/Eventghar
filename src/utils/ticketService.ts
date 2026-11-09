@@ -12,6 +12,17 @@ export interface TicketQRPayload {
 }
 
 /**
+ * Random ticket-code characters from the browser's secure random source
+ * (no 0/O/1/I so codes are easy to read out at the gate).
+ */
+function randomCode(length: number): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+/**
  * Generates individual issued_tickets for a verified booking.
  * If tickets are already generated for this booking, returns the existing ones.
  */
@@ -65,8 +76,7 @@ export async function generateTicketsForBooking(
 
   const ticketsToInsert = [];
   for (let i = 1; i <= count; i++) {
-    const randomHex = Math.random().toString(36).substring(2, 5).toUpperCase();
-    const ticketCode = `EG-${eventPrefix}-${bookingPrefix}${randomHex}-${i}`;
+    const ticketCode = `EG-${eventPrefix}-${bookingPrefix}${randomCode(5)}-${i}`;
 
     ticketsToInsert.push({
       booking_id: booking.id,

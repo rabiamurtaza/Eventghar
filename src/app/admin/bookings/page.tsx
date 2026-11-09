@@ -8,6 +8,7 @@ import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
+import { fetchAllRows } from "@/utils/fetchAll";
 
 export default function AdminBookingsPage() {
   // Main View Switcher
@@ -47,72 +48,88 @@ export default function AdminBookingsPage() {
     let isMounted = true;
     async function loadInitialData() {
       const supabase = createClient();
+      // Bookings and tickets are loaded in pages of 1,000 so long lists are never cut off
       const [bookingsRes, eventsRes, ticketsRes] = await Promise.all([
-        supabase
-          .from('bookings')
-          .select(`
-            *,
-            events (
-              id,
-              title,
-              event_number,
-              organizer_name,
-              organizer_contact,
-              organizer_id,
-              ticket_price,
-              ticket_types (name, price)
-            )
-          `)
-          .order('created_at', { ascending: false }),
+        fetchAllRows((from, to) =>
+          supabase
+            .from('bookings')
+            .select(`
+              *,
+              events (
+                id,
+                title,
+                event_number,
+                organizer_name,
+                organizer_contact,
+                organizer_id,
+                ticket_price,
+                ticket_types (name, price)
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to)
+        ),
         supabase
           .from('events')
           .select('id, title, event_number, total_tickets, ticket_price, ticket_types(name, total_available)')
           .order('title', { ascending: true }),
-        supabase
-          .from('issued_tickets')
-          .select(`
-            *,
-            events (
-              id,
-              title,
-              event_number
-            )
-          `)
-          .order('created_at', { ascending: false })
+        fetchAllRows((from, to) =>
+          supabase
+            .from('issued_tickets')
+            .select(`
+              *,
+              events (
+                id,
+                title,
+                event_number
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to)
+        )
       ]);
 
       if (!isMounted) return;
-      if (bookingsRes.data) setBookings(bookingsRes.data);
+      if (!bookingsRes.error) setBookings(bookingsRes.data);
       if (eventsRes.data) setEventsList(eventsRes.data);
-      if (ticketsRes.data) setIssuedTickets(ticketsRes.data);
+      if (!ticketsRes.error) setIssuedTickets(ticketsRes.data);
       setLoading(false);
     }
 
     loadInitialData();
 
     const supabase = createClient();
-    // Realtime subscription for live bookings, ticket scans, and event changes
+    // Realtime subscription for live bookings, ticket scans, and event changes.
+    // Changes that arrive close together (e.g. a busy gate scanning tickets) trigger ONE reload.
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReload = () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => loadInitialData(), 1500);
+    };
     const channel = supabase
       .channel("admin-bookings-attendance-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bookings" },
-        () => loadInitialData()
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "issued_tickets" },
-        () => loadInitialData()
+        scheduleReload
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
-        () => loadInitialData()
+        scheduleReload
       )
       .subscribe();
 
     return () => {
       isMounted = false;
+      if (reloadTimer) clearTimeout(reloadTimer);
       supabase.removeChannel(channel);
     };
   }, []);
@@ -120,19 +137,23 @@ export default function AdminBookingsPage() {
   async function fetchIssuedTickets() {
     setAttendanceLoading(true);
     const supabase = createClient();
-    const { data } = await supabase
-      .from('issued_tickets')
-      .select(`
-        *,
-        events (
-          id,
-          title,
-          event_number
-        )
-      `)
-      .order('created_at', { ascending: false });
+    const { data, error } = await fetchAllRows((from, to) =>
+      supabase
+        .from('issued_tickets')
+        .select(`
+          *,
+          events (
+            id,
+            title,
+            event_number
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to)
+    );
 
-    if (data) {
+    if (!error) {
       setIssuedTickets(data);
     }
     setAttendanceLoading(false);
