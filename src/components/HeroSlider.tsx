@@ -358,7 +358,7 @@ export default function HeroSlider() {
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        className="relative w-full h-[588px] sm:h-[630px] lg:h-[714px] overflow-hidden select-none touch-pan-y cursor-grab active:cursor-grabbing bg-neutral-950"
+        className="relative w-full h-[588px] sm:h-[630px] lg:h-[650px] overflow-hidden select-none touch-pan-y cursor-grab active:cursor-grabbing bg-neutral-950"
       >
         {/* Fallback Background (when no images exist yet) */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-neutral-900 to-black z-0" />
