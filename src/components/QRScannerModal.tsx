@@ -74,6 +74,8 @@ export default function QRScannerModal({
     isMountedRef.current = true;
     isScanLockedRef.current = false;
     lastScannedTicketRef.current = null;
+    // Forget an earlier camera error so reopening the scanner tries the camera again
+    setScannerError(null);
     let html5QrCode: any = null;
 
     async function startScanner() {
