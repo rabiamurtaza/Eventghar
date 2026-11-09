@@ -1,7 +1,7 @@
 "use client";
 
 import type { OfflineStats } from "@/utils/offlineTypes";
-import { money } from "@/utils/offlineFormat";
+import { moneyTotal } from "@/utils/offlineFormat";
 
 /** The offline numbers for one event: same look as the online "Tickets Overview". */
 export default function OfflineDashboard({ stats, loading }: { stats: OfflineStats | null; loading: boolean }) {
@@ -11,7 +11,7 @@ export default function OfflineDashboard({ stats, loading }: { stats: OfflineSta
     { label: "Scanned at the gate", value: t ? t.scanned : "—", cls: "text-green-600 dark:text-green-400" },
     { label: "Not scanned yet", value: t ? t.not_scanned : "—", cls: "text-amber-600 dark:text-amber-400" },
     { label: "Void (cancelled)", value: t ? t.void : "—", cls: "text-red-600 dark:text-red-400" },
-    { label: "Cash to collect", value: t ? money(t.expected_cash) : "—", cls: "text-indigo-600 dark:text-indigo-400", sub: "all tickets that are not void" },
+    { label: "Cash to collect", value: t ? moneyTotal(t.expected_cash) : "—", cls: "text-indigo-600 dark:text-indigo-400", sub: "all tickets that are not void" },
   ];
 
   return (
@@ -54,7 +54,7 @@ export default function OfflineDashboard({ stats, loading }: { stats: OfflineSta
                   <td className="px-4 py-3 font-bold text-green-600 dark:text-green-400">{row.scanned}</td>
                   <td className="px-4 py-3 font-bold text-amber-600 dark:text-amber-400">{row.not_scanned}</td>
                   <td className="px-4 py-3 font-bold text-red-600 dark:text-red-400">{row.void}</td>
-                  <td className="px-4 py-3 font-bold text-indigo-600 dark:text-indigo-400">{money(row.expected_cash)}</td>
+                  <td className="px-4 py-3 font-bold text-indigo-600 dark:text-indigo-400">{moneyTotal(row.expected_cash)}</td>
                 </tr>
               ))}
             </tbody>

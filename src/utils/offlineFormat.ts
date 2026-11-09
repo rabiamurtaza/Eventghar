@@ -39,6 +39,11 @@ export function money(amount: number | string | null | undefined): string {
   return n === 0 ? "Free" : `Rs. ${n.toLocaleString("en-US")}`;
 }
 
+/** A total of money (never "Free"): 0 -> "Rs. 0", 250000 -> "Rs. 250,000" */
+export function moneyTotal(amount: number | string | null | undefined): string {
+  return `Rs. ${(Number(amount) || 0).toLocaleString("en-US")}`;
+}
+
 /** Date + time in Pakistan time, for batch lists: "20 Nov 2026, 3:05 PM" */
 export function formatStamp(iso?: string | null): string {
   if (!iso) return "";

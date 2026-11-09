@@ -8,7 +8,7 @@ import OfflineLookup from "@/components/offline/OfflineLookup";
 import OfflineTicketCard from "@/components/offline/OfflineTicketCard";
 import { createOfflineApi } from "@/utils/offlineClient";
 import { getEventTiers } from "@/utils/offlineTiers";
-import { formatStamp, money } from "@/utils/offlineFormat";
+import { formatStamp, money, moneyTotal } from "@/utils/offlineFormat";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
 import type { BatchData, OfflineApi, OfflineEvent, OfflineStats, StatsBatch } from "@/utils/offlineTypes";
 
@@ -152,7 +152,7 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
       setQtyInput("");
       setNotice({
         type: "success",
-        text: `Batch ${data.batch.batch_number} created: ${data.tickets.length} ${data.batch.ticket_type} ticket(s), ${first} to ${last}. Cash to collect when sold: ${money(
+        text: `Batch ${data.batch.batch_number} created: ${data.tickets.length} ${data.batch.ticket_type} ticket(s), ${first} to ${last}. Cash to collect when sold: ${moneyTotal(
           data.tickets.length * (Number(data.batch.price) || 0)
         )}. Download the PDF below and print it.`,
       });
@@ -369,7 +369,7 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
           {expectedCash !== null && tier ? (
             <>
               <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">Cash you should get back when all are sold</div>
-              <div className="mt-1 text-2xl font-black text-indigo-700 dark:text-indigo-300">{money(expectedCash)}</div>
+              <div className="mt-1 text-2xl font-black text-indigo-700 dark:text-indigo-300">{moneyTotal(expectedCash)}</div>
               <div className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
                 {qty} {tier.name} ticket{qty === 1 ? "" : "s"} x {money(tier.price)}
               </div>
@@ -470,7 +470,7 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
                     </div>
                     <div className="text-right">
                       <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Cash to collect</div>
-                      <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">{money(b.expected_cash)}</div>
+                      <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">{moneyTotal(b.expected_cash)}</div>
                     </div>
                   </div>
 
