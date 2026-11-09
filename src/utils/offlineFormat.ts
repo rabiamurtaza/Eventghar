@@ -33,6 +33,11 @@ export function eventWhere(event?: Pick<EventInfo, "venue_name" | "city"> | null
   return [event.venue_name, event.city].filter(Boolean).join(", ");
 }
 
+/** 7 -> "OFF-0007" */
+export function serialText(serial: number): string {
+  return `OFF-${String(serial).padStart(4, "0")}`;
+}
+
 /** 1500 -> "Rs. 1,500", 0 -> "Free" */
 export function money(amount: number | string | null | undefined): string {
   const n = Number(amount) || 0;

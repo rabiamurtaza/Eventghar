@@ -127,6 +127,19 @@ export type OfflineEvent = {
   ticket_types?: Array<{ name?: string | null; price?: number | string | null }> | null;
 };
 
+/** One printed ticket as shown in the gate attendance list. */
+export type AttendanceRow = {
+  id: string;
+  serial: number;
+  position_in_batch: number;
+  batch_id: string;
+  ticket_type: string;
+  price: number;
+  status: string; // generated | checked_in | void
+  checked_in_at: string | null;
+  voided_at: string | null;
+};
+
 /** Everything the Offline panel needs from the outside world (real one in offlineClient.ts). */
 export interface OfflineApi {
   listEvents(): Promise<OfflineEvent[]>;
@@ -137,4 +150,6 @@ export interface OfflineApi {
   voidBatch(batchId: string): Promise<{ voided: number; already_used: number }>;
   voidTicket(ticketId: string): Promise<{ changed: boolean }>;
   lookup(eventId: string, serial: string, code: string, checkIn: boolean): Promise<LookupResult>;
+  /** Every printed ticket of the event (for the gate attendance list). */
+  listTickets(eventId: string): Promise<AttendanceRow[]>;
 }

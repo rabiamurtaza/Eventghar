@@ -6,7 +6,8 @@
  *    routes, because the secret QR seal can only be made there.
  */
 import { createClient } from "@/utils/supabase/client";
-import type { LookupResult, OfflineApi, OfflineEvent, OfflineStats } from "@/utils/offlineTypes";
+import { fetchAllRows } from "@/utils/fetchAll";
+import type { AttendanceRow, LookupResult, OfflineApi, OfflineEvent, OfflineStats } from "@/utils/offlineTypes";
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -79,5 +80,19 @@ export function createOfflineApi(): OfflineApi {
     },
 
     lookup: (eventId, serial, code, checkIn) => post<LookupResult>("/api/offline/lookup", { eventId, serial, code, checkIn }),
+
+    async listTickets(eventId): Promise<AttendanceRow[]> {
+      // The database rules only return tickets of events this person manages. Loaded in pages of 1,000.
+      const { data, error } = await fetchAllRows<AttendanceRow>((from, to) =>
+        supabase
+          .from("offline_tickets")
+          .select("id, serial, position_in_batch, batch_id, ticket_type, price, status, checked_in_at, voided_at")
+          .eq("event_id", eventId)
+          .order("serial", { ascending: true })
+          .range(from, to)
+      );
+      if (error) throw rpcError(error.message);
+      return data.map((r) => ({ ...r, price: Number(r.price) || 0 }));
+    },
   };
 }
