@@ -15,7 +15,7 @@ interface QRScannerModalProps {
 }
 
 interface ScanResult {
-  type: "success" | "wrong_event" | "already_used" | "invalid";
+  type: "success" | "wrong_event" | "already_used" | "invalid" | "void";
   message: string;
   details?: {
     holder_name?: string;
@@ -25,6 +25,16 @@ interface ScanResult {
     ticket_type?: string;
     event_title?: string;
     scanned_at?: string;
+  };
+  /** Set only for OFFLINE (printed cash) tickets */
+  offline?: {
+    serial_label: string;
+    batch_number: number;
+    batch_quantity: number;
+    position: number;
+    price: number;
+    ticket_type: string;
+    event_title: string;
   };
   timestamp: string;
 }
@@ -155,6 +165,68 @@ export default function QRScannerModal({
     isScanLockedRef.current = false;
   };
 
+  // OFFLINE (printed cash) tickets: the website's server checks the secret seal and checks the
+  // ticket in. Online tickets never come through here.
+  const handleOfflineScan = async (qr: string, timeStr: string) => {
+    const show = (res: ScanResult, success = false) => {
+      if (success) playSuccessChime(); else playErrorBuzzer();
+      setCurrentResult(res);
+      setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
+    };
+
+    try {
+      const response = await fetch("/api/offline/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qr, eventId: selectedEventId || undefined }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data || !data.result) {
+        show({
+          type: "invalid",
+          message: `Could not check the ticket (${data?.error || "no connection"}). Do NOT admit yet - check the connection and scan again.`,
+          timestamp: timeStr,
+        });
+        return;
+      }
+
+      const type: ScanResult["type"] =
+        data.result === "valid" ? "success"
+        : data.result === "already_used" ? "already_used"
+        : data.result === "void" ? "void"
+        : data.result === "wrong_event" ? "wrong_event"
+        : "invalid";
+      const d = data.details;
+      show(
+        {
+          type,
+          message: data.message,
+          offline: d
+            ? {
+                serial_label: d.serial_label,
+                batch_number: d.batch_number,
+                batch_quantity: d.batch_quantity,
+                position: d.position,
+                price: d.price,
+                ticket_type: d.ticket_type,
+                event_title: d.event_title,
+              }
+            : undefined,
+          timestamp: timeStr,
+        },
+        type === "success"
+      );
+      if (type === "success" && onScanSuccess) onScanSuccess();
+    } catch {
+      show({
+        type: "invalid",
+        message: "Could not reach the server. Do NOT admit yet - check the connection and scan again.",
+        timestamp: timeStr,
+      });
+    }
+  };
+
   const handleDecodedText = async (decodedText: string) => {
     // 1. Synchronous lock check: immediately ignore frames while reviewing current result or verifying
     if (isScanLockedRef.current) return;
@@ -176,6 +248,12 @@ export default function QRScannerModal({
     const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
     try {
+      // 2b. Offline (printed cash) ticket? They start with "OFF." and are handled by the server
+      if (decodedText.trim().startsWith("OFF.")) {
+        await handleOfflineScan(decodedText.trim(), timeStr);
+        return;
+      }
+
       // 3. Parse JSON payload
       let parsed: any = null;
       try {
@@ -509,7 +587,7 @@ export default function QRScannerModal({
               >
                 {currentResult.type === "success"
                   ? "✓"
-                  : currentResult.type === "already_used"
+                  : currentResult.type === "already_used" || currentResult.type === "void"
                   ? "✕"
                   : currentResult.type === "wrong_event"
                   ? "⚠️"
@@ -517,9 +595,23 @@ export default function QRScannerModal({
               </div>
 
               <div className="overflow-hidden flex-1 min-w-0">
+                {currentResult.offline && (
+                  <span className="mb-1 inline-block rounded bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-black">
+                    Offline ticket
+                  </span>
+                )}
                 <div className="font-extrabold text-sm sm:text-base leading-tight">
                   {currentResult.message}
                 </div>
+                {currentResult.offline && (
+                  <div className="text-xs opacity-90 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                    <span><strong>Serial:</strong> {currentResult.offline.serial_label}</span>
+                    <span><strong>Batch:</strong> {currentResult.offline.batch_number} ({currentResult.offline.position} of {currentResult.offline.batch_quantity})</span>
+                    <span><strong>Type:</strong> {currentResult.offline.ticket_type}</span>
+                    <span><strong>Price:</strong> {currentResult.offline.price === 0 ? "Free" : `Rs. ${currentResult.offline.price.toLocaleString("en-US")}`}</span>
+                    <span><strong>Event:</strong> {currentResult.offline.event_title}</span>
+                  </div>
+                )}
                 {currentResult.details && (
                   <div className="text-xs opacity-90 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                     {currentResult.details.holder_name && (
@@ -576,7 +668,7 @@ export default function QRScannerModal({
                           : "bg-red-500"
                       }`}
                     ></span>
-                    <span className="truncate">{item.details?.holder_name || item.message}</span>
+                    <span className="truncate">{item.details?.holder_name || (item.offline ? `${item.offline.serial_label} (offline)` : item.message)}</span>
                   </span>
                   <span className="text-[10px] text-neutral-500 shrink-0 ml-2">{item.timestamp}</span>
                 </div>
