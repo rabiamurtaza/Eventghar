@@ -26,12 +26,6 @@ function validateImageFile(file: File, fieldName: string): string | null {
   return null;
 }
 
-/** Price of one ticket of the given type; blank / free / unreadable counts as 0. */
-function ticketUnitPrice(ticket: any): number {
-  const n = parseFloat(String(ticket?.price ?? '0').replace(/,/g, ''));
-  return isNaN(n) ? 0 : n;
-}
-
 /**
  * Tickets already taken for an event (pending + verified), from the safe summary view.
  * Returns null if the numbers could not be loaded, so the caller keeps what it had
@@ -477,21 +471,18 @@ export default function BookTicketPage() {
       return;
     }
 
-    // A payment screenshot is compulsory for paid tickets. Free tickets need no payment.
-    const needsPayment = ticketUnitPrice(selectedTicket) > 0;
-    if (needsPayment && !paymentScreenshot) {
+    // Payment screenshot is compulsory for every booking.
+    if (!paymentScreenshot) {
       setErrorMsg("Payment screenshot is required.");
       setSubmitting(false);
       return;
     }
 
-    if (paymentScreenshot) {
-      const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
-      if (paymentErr) {
-        setErrorMsg(paymentErr);
-        setSubmitting(false);
-        return;
-      }
+    const paymentErr = validateImageFile(paymentScreenshot, "Payment Screenshot");
+    if (paymentErr) {
+      setErrorMsg(paymentErr);
+      setSubmitting(false);
+      return;
     }
 
     const supabase = createClient();
@@ -519,8 +510,8 @@ export default function BookTicketPage() {
     let studentIdUrl = null;
 
     try {
-      // Upload the payment screenshot (required for paid tickets - validated above)
-      if (paymentScreenshot) {
+      // Upload Payment Screenshot (required - validated above)
+      {
         const pExt = paymentScreenshot.name.split('.').pop();
         const pName = `payment-${Date.now()}-${Math.random().toString(36).substring(2)}.${pExt}`;
         const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, paymentScreenshot);
@@ -909,11 +900,11 @@ export default function BookTicketPage() {
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl border border-neutral-200 dark:border-neutral-800">
               <label className="block text-sm font-bold text-neutral-900 dark:text-white mb-2">
-                {ticketUnitPrice(selectedTicket) > 0 ? "Upload Payment Screenshot *" : "Payment Screenshot (not needed for free tickets)"}
+                Upload Payment Screenshot *
               </label>
               <input
                 type="file"
-                required={ticketUnitPrice(selectedTicket) > 0}
+                required
                 accept="image/png, image/jpeg, image/jpg, image/webp" 
                 onChange={e => {
                   const file = e.target.files?.[0] || null;
