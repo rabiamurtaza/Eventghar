@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 import { SUPPORT_WHATSAPP, SUPPORT_EMAIL } from "@/config/site";
+import EmailLink from "@/components/EmailLink";
 
 function normalizePhoneNumber(phone: string): string {
   let cleaned = phone.replace(/[\s\-\(\)]/g, "");
@@ -197,12 +198,11 @@ export default function ContactUsPage() {
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-white">Email Us</p>
                       <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">Support & event inquiries</p>
-                      <a 
-                        href={`mailto:${SUPPORT_EMAIL}`} 
+                      <EmailLink
                         className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline mt-1 inline-block"
                       >
                         {SUPPORT_EMAIL}
-                      </a>
+                      </EmailLink>
                     </div>
                   </div>
 

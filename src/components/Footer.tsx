@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import EmailLink from "@/components/EmailLink";
 
 export default function Footer() {
   return (
@@ -49,9 +50,9 @@ export default function Footer() {
             </p>
             <p className="text-sm flex items-center text-gray-400">
               <Mail className="h-4 w-4 mr-2" />
-              <a href={`mailto:${siteConfig.supportEmail}`} className="hover:text-white transition-colors duration-200">
+              <EmailLink className="hover:text-white transition-colors duration-200">
                 {siteConfig.supportEmail}
-              </a>
+              </EmailLink>
             </p>
             <p className="mt-4 text-xs text-gray-500">
               &copy; {new Date().getFullYear()} Event Ghar. All rights reserved.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { toBlob } from "html-to-image";
 
@@ -17,6 +17,23 @@ export interface TicketPassProps {
   ticketTotal: number;
 }
 
+type Busy = "save" | "share" | null;
+type Notice = { type: "success" | "error" | "hint"; text: string } | null;
+
+// Keeps the buttons (and their messages) out of the saved ticket picture
+function excludeActionArea(domNode: unknown) {
+  const el = domNode as { classList?: { contains?: (name: string) => boolean } } | null;
+  if (el?.classList && typeof el.classList.contains === "function") {
+    if (el.classList.contains("save-ticket-action-area")) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const errorName = (e: unknown) => (e as { name?: string } | null)?.name;
+const errorMessage = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
+
 export default function TicketPassCard({
   passType,
   ticketNumber,
@@ -30,8 +47,15 @@ export default function TicketPassCard({
   ticketTotal,
 }: TicketPassProps) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const preparedRef = useRef<File | null>(null);
+  const preparingRef = useRef<Promise<File> | null>(null);
+  const versionRef = useRef(0);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [busy, setBusy] = useState<Busy>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [canShareFiles, setCanShareFiles] = useState(false);
 
   const isInactive = status === "used" || status === "expired";
 
@@ -51,77 +75,189 @@ export default function TicketPassCard({
     ? ticketNumber
     : `#${ticketNumber}`;
 
-  const handleSaveTicket = async () => {
-    if (!cardRef.current || saveStatus === "saving") return;
+  const cleanNum = String(ticketNumber || ticketIndex).replace(/[^a-zA-Z0-9_-]/g, "");
+  const fileName = `ticket-${cleanNum || ticketIndex}.png`;
 
-    setSaveStatus("saving");
-    setErrorMsg(null);
+  // Work out what this device can do: iPhone/iPad (Photos only reachable through the share
+  // sheet's "Save Image") and whether the device can share a picture at all.
+  useEffect(() => {
+    const ua = navigator.userAgent || "";
+    setIsIOS(/iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+    try {
+      const probe = new File([new Blob(["x"])], "probe.png", { type: "image/png" });
+      setCanShareFiles(
+        typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [probe] })
+      );
+    } catch {
+      setCanShareFiles(false);
+    }
+  }, []);
+
+  const showNotice = (n: Notice, ms = 4000) => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setNotice(n);
+    if (n) {
+      noticeTimerRef.current = setTimeout(() => setNotice(null), ms);
+    }
+  };
+
+  // Draws the whole ticket (header, status chip, QR box, attendee line, footer) as a PNG at 2x
+  const renderTicketFile = useCallback(async (): Promise<File> => {
+    const node = cardRef.current;
+    if (!node) throw new Error("Ticket is not ready yet.");
+
+    const options = {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor:
+        typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "#1E2028" : "#FFFFFF",
+      filter: excludeActionArea,
+      // The card is centred with "margin: auto". On a wide screen that resolves to a big pixel
+      // margin, which the picture would copy and push the ticket out of view (blank/half ticket).
+      style: { margin: "0", transform: "none" },
+    };
+
+    // Safari can draw a blank picture on the very first render; a throw-away first pass fixes that
+    if (isIOS) {
+      try {
+        await toBlob(node, options);
+      } catch {}
+    }
+
+    const blob = await toBlob(node, options);
+    if (!blob) throw new Error("Could not generate ticket image.");
+    return new File([blob], fileName, { type: "image/png" });
+  }, [fileName, isIOS]);
+
+  // Returns the ready-made picture (preparing it if needed). The picture is cached so a tap
+  // can hand it to the share sheet immediately, which phones require.
+  const getTicketFile = useCallback(async (): Promise<File> => {
+    if (preparedRef.current) return preparedRef.current;
+    if (!preparingRef.current) {
+      const version = versionRef.current;
+      preparingRef.current = renderTicketFile()
+        .then((file) => {
+          // Only keep it if the ticket did not change while it was being drawn
+          if (version === versionRef.current) preparedRef.current = file;
+          return file;
+        })
+        .finally(() => {
+          preparingRef.current = null;
+        });
+    }
+    return preparingRef.current;
+  }, [renderTicketFile]);
+
+  // Whenever the ticket changes (e.g. it was scanned and is now "Used"), forget the old picture.
+  // Then prepare a fresh one in the background once the ticket is on screen.
+  useEffect(() => {
+    versionRef.current += 1;
+    preparedRef.current = null;
+
+    const node = cardRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        observer.disconnect();
+        timer = setTimeout(() => {
+          getTicketFile().catch(() => {});
+        }, 400);
+      }
+    });
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [status, qrValue, eventTitle, eventDate, venue, attendeeName, passType, ticketNumber, ticketIndex, ticketTotal, getTicketFile]);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
+
+  const downloadFile = (file: File) => {
+    const blobUrl = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+  };
+
+  // SAVE TICKET
+  //  - Android / computers: downloads the picture (it appears in the gallery / Downloads)
+  //  - iPhone / iPad: opens the share sheet, where "Save Image" puts it in Photos
+  const handleSave = async () => {
+    if (busy) return;
+    setBusy("save");
+    setNotice(null);
 
     try {
-      // Render entire card (header, status chip, QR box, attendee line, footer) at 2x resolution
-      const blob = await toBlob(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "#1E2028" : "#FFFFFF",
-        filter: (domNode: any) => {
-          // exclude the save button action area from the saved ticket image
-          if (domNode?.classList && typeof domNode.classList.contains === "function") {
-            if (domNode.classList.contains("save-ticket-action-area")) {
-              return false;
-            }
-          }
-          return true;
-        },
-      });
-
-      if (!blob) {
-        throw new Error("Could not generate ticket image.");
-      }
-
-      const cleanNum = String(ticketNumber || ticketIndex).replace(/[^a-zA-Z0-9_-]/g, "");
-      const fileName = `ticket-${cleanNum || ticketIndex}.png`;
-      const file = new File([blob], fileName, { type: "image/png" });
-
-      // Mobile: Use Web Share API if supported
-      if (typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: `${eventTitle} Ticket`,
-          });
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus("idle"), 2500);
+      if (isIOS && canShareFiles) {
+        // The share sheet must be opened straight from the tap, so the picture has to be ready.
+        if (!preparedRef.current) {
+          await getTicketFile();
+          showNotice({ type: "hint", text: "Your ticket is ready. Tap Save Ticket once more." }, 6000);
           return;
-        } catch (shareErr: any) {
-          if (shareErr.name === "AbortError") {
-            setSaveStatus("idle");
-            return;
-          }
+        }
+        try {
+          await navigator.share({ files: [preparedRef.current], title: `${eventTitle} Ticket` });
+          return;
+        } catch (shareErr) {
+          if (errorName(shareErr) === "AbortError") return;
+          // Share sheet not available right now: fall through to a normal download
         }
       }
 
-      // Desktop / Fallback direct download
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2500);
-    } catch (err: any) {
+      const file = await getTicketFile();
+      downloadFile(file);
+      showNotice({
+        type: "success",
+        text: isIOS ? "✓ Ticket saved to your Files app (Downloads)" : "✓ Ticket saved to your device",
+      }, 3500);
+    } catch (err) {
       console.error("Save ticket error:", err);
-      setSaveStatus("error");
-      setErrorMsg(err.message || "Failed to save ticket. Please try again.");
-      setTimeout(() => {
-        setSaveStatus("idle");
-        setErrorMsg(null);
-      }, 4000);
+      showNotice({ type: "error", text: errorMessage(err, "Failed to save ticket. Please try again.") });
+    } finally {
+      setBusy(null);
     }
   };
+
+  // SHARE TICKET: opens the share sheet (WhatsApp, Messages, etc.)
+  const handleShare = async () => {
+    if (busy) return;
+    setBusy("share");
+    setNotice(null);
+
+    try {
+      const file = await getTicketFile();
+      try {
+        await navigator.share({ files: [file], title: `${eventTitle} Ticket` });
+      } catch (shareErr) {
+        if (errorName(shareErr) === "AbortError") return;
+        // Sharing failed: download the picture instead so the user still gets it
+        downloadFile(file);
+        showNotice({ type: "success", text: "✓ Ticket saved to your device" }, 3500);
+      }
+    } catch (err) {
+      console.error("Share ticket error:", err);
+      showNotice({ type: "error", text: errorMessage(err, "Failed to share ticket. Please try again.") });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const buttonClasses =
+    "flex-1 py-[12px] px-4 rounded-[10px] bg-[#F3F4F6] dark:bg-[#262933] text-[#1F2430] dark:text-[#ECEDF2] font-semibold text-sm transition hover:bg-neutral-200 dark:hover:bg-[#33363F] focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50";
 
   return (
     <div
@@ -170,26 +306,48 @@ export default function TicketPassCard({
           </strong>
         </p>
 
-        {/* Save Ticket Button Area */}
+        {/* Save / Share buttons (left out of the saved picture) */}
         <div className="w-full save-ticket-action-area">
-          <button
-            type="button"
-            onClick={handleSaveTicket}
-            disabled={saveStatus === "saving"}
-            className="w-full mt-[18px] py-[12px] px-4 rounded-[10px] bg-[#F3F4F6] dark:bg-[#262933] text-[#1F2430] dark:text-[#ECEDF2] font-semibold text-sm transition hover:bg-neutral-200 dark:hover:bg-[#33363F] focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
-          >
-            {saveStatus === "saving" ? "Saving..." : "Save Ticket"}
-          </button>
+          <div className="flex gap-2 mt-[18px]">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={busy !== null}
+              className={buttonClasses}
+            >
+              {busy === "save" ? "Saving..." : "Save Ticket"}
+            </button>
 
-          {saveStatus === "saved" && (
-            <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-2 text-center animate-in fade-in">
-              ✓ Ticket saved
+            {/* Share only where the device can share a picture; iPhone uses Save Ticket for this */}
+            {!isIOS && canShareFiles && (
+              <button
+                type="button"
+                onClick={handleShare}
+                disabled={busy !== null}
+                className={buttonClasses}
+              >
+                {busy === "share" ? "Sharing..." : "Share Ticket"}
+              </button>
+            )}
+          </div>
+
+          {isIOS && canShareFiles && !notice && (
+            <p className="text-[11px] text-[#6B7280] dark:text-[#9AA0AE] mt-2 text-center">
+              In the menu that opens, tap “Save Image”.
             </p>
           )}
 
-          {saveStatus === "error" && errorMsg && (
-            <p className="text-xs font-medium text-red-500 mt-2 text-center animate-in fade-in">
-              {errorMsg}
+          {notice && (
+            <p
+              className={`text-xs font-semibold mt-2 text-center animate-in fade-in ${
+                notice.type === "success"
+                  ? "text-green-600 dark:text-green-400"
+                  : notice.type === "error"
+                  ? "text-red-500 font-medium"
+                  : "text-[#6B7280] dark:text-[#9AA0AE]"
+              }`}
+            >
+              {notice.text}
             </p>
           )}
         </div>
