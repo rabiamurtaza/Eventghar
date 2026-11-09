@@ -4,7 +4,15 @@ import type { OfflineStats } from "@/utils/offlineTypes";
 import { moneyTotal } from "@/utils/offlineFormat";
 
 /** The offline numbers for one event: same look as the online "Tickets Overview". */
-export default function OfflineDashboard({ stats, loading }: { stats: OfflineStats | null; loading: boolean }) {
+export default function OfflineDashboard({
+  stats,
+  loading,
+  updatedAt,
+}: {
+  stats: OfflineStats | null;
+  loading: boolean;
+  updatedAt?: Date | null;
+}) {
   const t = stats?.totals;
   const cards = [
     { label: "Tickets generated", value: t ? t.total : "—", cls: "text-neutral-900 dark:text-white" },
@@ -16,11 +24,18 @@ export default function OfflineDashboard({ stats, loading }: { stats: OfflineSta
 
   return (
     <div className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6">
-      <div className="mb-4">
-        <h2 className="text-lg font-extrabold text-neutral-900 dark:text-white">Offline Tickets Overview</h2>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Printed cash tickets for this event. These are separate from the online capacity and online bookings.
-        </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-extrabold text-neutral-900 dark:text-white">Offline Tickets Overview</h2>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Printed cash tickets for this event. These are separate from the online capacity and online bookings.
+          </p>
+        </div>
+        {updatedAt && (
+          <p className="text-[11px] text-neutral-500" aria-live="off">
+            Updated {updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Karachi" })} - refreshes every 30 seconds
+          </p>
+        )}
       </div>
 
       <div className={`grid grid-cols-2 gap-3 lg:grid-cols-5 ${loading ? "opacity-60" : ""}`}>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRScannerModal from "@/components/QRScannerModal";
 import ConfirmDialog from "@/components/offline/ConfirmDialog";
+import OfflineAttendance from "@/components/offline/OfflineAttendance";
 import OfflineDashboard from "@/components/offline/OfflineDashboard";
 import OfflineLookup from "@/components/offline/OfflineLookup";
 import OfflineTicketCard from "@/components/offline/OfflineTicketCard";
@@ -14,6 +15,7 @@ import type { BatchData, OfflineApi, OfflineEvent, OfflineStats, StatsBatch } fr
 
 const SOFT_LIMIT = 200; // a warning (not a stop) once an event has more offline tickets than this
 const PREVIEW_COUNT = 12;
+const REFRESH_MS = 30000; // numbers refresh by themselves every 30 seconds while the page is open
 const WIDTH_KEY = "eg_offline_thermal_width";
 
 type Notice = { type: "success" | "error"; text: string } | null;
@@ -34,6 +36,12 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
   const [statsLoading, setStatsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+
+  // which part is open: batches & tickets, or gate attendance
+  const [section, setSection] = useState<"tickets" | "attendance">("tickets");
+  // automatic refresh: when the numbers were last loaded, and a counter the attendance list reloads on
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [tick, setTick] = useState(0);
 
   // generate form
   const [tierName, setTierName] = useState("");
@@ -92,17 +100,19 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
     };
   }, [api]);
 
+  // quiet = a background refresh: no loading flicker, and a failed refresh keeps what is on screen
   const refreshStats = useCallback(
-    async (id: string) => {
+    async (id: string, quiet = false) => {
       if (!id) return;
-      setStatsLoading(true);
+      if (!quiet) setStatsLoading(true);
       try {
         setStats(await api.stats(id));
-        setLoadError(null);
+        setUpdatedAt(new Date());
+        if (!quiet) setLoadError(null);
       } catch (e) {
-        setLoadError(errText(e));
+        if (!quiet) setLoadError(errText(e));
       } finally {
-        setStatsLoading(false);
+        if (!quiet) setStatsLoading(false);
       }
     },
     [api]
@@ -121,6 +131,37 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
   useEffect(() => {
     setTierName(tiers[0]?.name ?? "");
   }, [tiers]);
+
+  // Automatic refresh every 30 seconds while the tab is open and visible, and again the moment
+  // the person comes back to the tab. This keeps scans from other phones showing up.
+  const openBatchId = useRef<string | null>(null);
+  useEffect(() => {
+    openBatchId.current = viewData?.batch.id ?? null;
+  }, [viewData]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const refreshAll = () => {
+      if (document.visibilityState !== "visible") return;
+      refreshStats(eventId, true);
+      setTick((t) => t + 1);
+      const id = openBatchId.current;
+      if (id) {
+        api
+          .getBatch(id)
+          .then((d) => {
+            if (openBatchId.current === id) setViewData(d);
+          })
+          .catch(() => {});
+      }
+    };
+    const timer = setInterval(refreshAll, REFRESH_MS);
+    document.addEventListener("visibilitychange", refreshAll);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshAll);
+    };
+  }, [eventId, api, refreshStats]);
 
   // ---------------------------------------------------------------- generate
   const qty = parseInt(qtyInput, 10);
@@ -310,8 +351,36 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
         </p>
       )}
 
-      <OfflineDashboard stats={stats} loading={statsLoading} />
+      <OfflineDashboard stats={stats} loading={statsLoading} updatedAt={updatedAt} />
 
+      {/* Two parts, like the online side: batches & tickets, and gate attendance */}
+      <div className="mb-6 flex overflow-x-auto border-b border-neutral-200 dark:border-neutral-800" role="tablist" aria-label="Offline sections">
+        {(
+          [
+            { key: "tickets", label: "🖨️ Batches & Tickets", badge: stats ? String(stats.by_batch.length) : "0" },
+            { key: "attendance", label: "🎟️ Gate Attendance", badge: stats ? `${stats.totals.scanned}/${stats.totals.total - stats.totals.void}` : "0/0" },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={section === t.key}
+            onClick={() => setSection(t.key)}
+            className={`flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-5 pb-3 text-sm font-bold transition ${
+              section === t.key
+                ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400"
+                : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+            }`}
+          >
+            <span>{t.label}</span>
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800">{t.badge}</span>
+          </button>
+        ))}
+      </div>
+
+      {section === "tickets" && (
+        <>
       {/* Generate */}
       <section className="mb-6 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-6">
         <h2 className="text-lg font-extrabold text-neutral-900 dark:text-white">Generate offline tickets</h2>
@@ -523,7 +592,15 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
         )}
       </section>
 
-      <OfflineLookup api={api} eventId={eventId} onChanged={() => refreshStats(eventId)} />
+        </>
+      )}
+
+      {section === "attendance" && (
+        <>
+          <OfflineAttendance api={api} eventId={eventId} eventTitle={selectedEvent?.title || ""} batches={stats?.by_batch || []} tick={tick} />
+          <OfflineLookup api={api} eventId={eventId} onChanged={() => { refreshStats(eventId); setTick((t) => t + 1); }} />
+        </>
+      )}
 
       {/* Dialogs */}
       <ConfirmDialog
