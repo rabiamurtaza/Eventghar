@@ -51,9 +51,12 @@ export async function downloadAttendancePdf(input: {
       STATUS_LABEL[r.status] ?? r.status,
       r.checked_in_at ? formatStamp(r.checked_in_at) : "",
     ]),
-    styles: { fontSize: 9, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.15, cellPadding: 1.8 },
+    // "plain" theme + explicit colours: pure black on white, no grey borders or stripes
+    theme: "plain",
+    styles: { fontSize: 9, textColor: [0, 0, 0], fillColor: [255, 255, 255], lineColor: [0, 0, 0], lineWidth: 0.15, cellPadding: 1.8 },
     headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [255, 255, 255] },
+    tableLineColor: [0, 0, 0],
+    tableLineWidth: 0.15,
   });
 
   const slug = (safe(input.eventTitle) || "event").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
