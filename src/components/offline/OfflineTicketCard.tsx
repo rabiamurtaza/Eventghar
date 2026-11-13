@@ -27,9 +27,8 @@ export default function OfflineTicketCard({
     <div className="w-full max-w-[340px] mx-auto overflow-hidden rounded-[18px] border-2 border-black bg-white text-black">
       {/* Header: solid black band, white text */}
       <div className="bg-black px-[22px] py-[20px] text-white">
-        <div className="flex items-center justify-between gap-2 text-[11px] font-bold uppercase tracking-[0.18em]">
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em]">
           <span className="truncate">{ticket.ticket_type}</span>
-          <span className="shrink-0">Offline ticket</span>
         </div>
         <h2 className="mt-[12px] mb-[6px] break-words text-[26px] font-extrabold leading-tight text-white">
           {event?.title || "Event"}

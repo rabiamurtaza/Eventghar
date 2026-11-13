@@ -113,15 +113,13 @@ function drawA4Ticket(doc: Doc, qr: QrMatrix, data: BatchData, t: SignedTicket, 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   const subLines = ([when, where].filter(Boolean).flatMap((s) => doc.splitTextToSize(s, w - 12)) as string[]).slice(0, 3);
-  const headerH = Math.max(32, 5.5 + 4 + lineH(title.size) * title.lines.length + 2 + subLines.length * lineH(9) + 4.5);
+  const headerH = Math.max(28, 5 + lineH(title.size) * title.lines.length + 2 + subLines.length * lineH(9) + 4.5);
 
   black(doc);
   doc.rect(x0, y0, w, headerH, "F");
   white(doc);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  centerSpaced(doc, "OFFLINE TICKET", mid, y0 + 5.5, 0.7);
-  let y = y0 + 5.5 + 4;
+  let y = y0 + 5;
   doc.setFontSize(title.size);
   title.lines.forEach((line) => {
     y += lineH(title.size) * 0.86;
@@ -211,16 +209,12 @@ function drawThermalTicket(doc: Doc, qr: QrMatrix, data: BatchData, t: SignedTic
   doc.setFont("helvetica", "normal");
   doc.setFontSize(s.small);
   const subLines = ([safe(eventWhen(event)), safe(eventWhere(event))].filter(Boolean).flatMap((x) => doc.splitTextToSize(x, w - 5)) as string[]).slice(0, 4);
-  const headerH = 3 + lineH(s.small) + 1.5 + lineH(title.size) * title.lines.length + 1.5 + subLines.length * lineH(s.small) + 3;
+  const headerH = 3 + lineH(title.size) * title.lines.length + 1.5 + subLines.length * lineH(s.small) + 3;
   black(doc);
   doc.setLineWidth(0.9);
   doc.rect(x0, y, w, headerH, "S");
   let ty = y + 3;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(s.small);
-  ty += lineH(s.small) * 0.85;
-  centerSpaced(doc, "OFFLINE TICKET", mid, ty, 0.5);
-  ty += lineH(s.small) * 0.15 + 1.5;
   doc.setFontSize(title.size);
   title.lines.forEach((line) => {
     ty += lineH(title.size) * 0.86;
