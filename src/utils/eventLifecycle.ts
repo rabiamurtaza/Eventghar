@@ -130,6 +130,21 @@ export function getEventLifecycle(
   const totalTickets = rawTotal !== null && !isNaN(rawTotal) && rawTotal > 0 ? rawTotal : null;
   const remainingTickets = totalTickets !== null ? Math.max(0, totalTickets - bookedTickets) : null;
 
+  // 0. Check if draft / unpublished
+  if (event.status && event.status.toLowerCase() !== 'published') {
+    return {
+      status: 'sales_closed',
+      label: 'DRAFT',
+      badgeBg: 'bg-neutral-600 dark:bg-neutral-700',
+      badgeText: 'text-white',
+      canBook: false,
+      reason: 'This event is currently in draft mode and not accepting bookings.',
+      remainingTickets,
+      totalTickets,
+      bookedTickets,
+    };
+  }
+
   // 1. Check if event has ended
   const endDateTime = parseEventEndDateTime(event.start_date, event.end_date, event.end_time, event.start_time);
   if (endDateTime && endDateTime.getTime() < now.getTime()) {
