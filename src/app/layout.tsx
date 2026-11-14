@@ -31,7 +31,8 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "Event Ghar",
-  description: "Discover and book tickets for exciting events.",
+  metadataBase: new URL("https://eventghar.vercel.app"),
+  description: "Discover, book and host events, all in one place.",
 };
 
 export const viewport: Viewport = {
