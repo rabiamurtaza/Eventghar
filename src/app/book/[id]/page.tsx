@@ -681,6 +681,21 @@ export default function BookTicketPage() {
             <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
           </div>
 
+          {/* Event Terms & Conditions */}
+          {event.terms_conditions && (
+            <div className="bg-white dark:bg-neutral-900 rounded-lg p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
+              <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#6a17b8] dark:text-[#c084fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Terms & Conditions</span>
+              </h3>
+              <div className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-950 p-3 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 leading-relaxed whitespace-pre-wrap">
+                {event.terms_conditions}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-neutral-900 rounded-lg p-4 sm:p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
             <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white mb-3">Payment Instructions</h3>
             {event.payment_instructions && (
