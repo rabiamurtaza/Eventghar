@@ -33,6 +33,19 @@ export const metadata: Metadata = {
   title: "Event Ghar",
   metadataBase: new URL("https://eventghar.vercel.app"),
   description: "Discover, book and host events, all in one place.",
+  openGraph: {
+    title: "Event Ghar",
+    description: "Discover, book and host events, all in one place.",
+    url: "https://eventghar.vercel.app",
+    siteName: "Event Ghar",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Event Ghar",
+    description: "Discover, book and host events, all in one place.",
+  },
 };
 
 export const viewport: Viewport = {

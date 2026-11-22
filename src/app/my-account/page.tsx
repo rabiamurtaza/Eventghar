@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import TicketPassCard from "@/components/TicketPassCard";
-import { buildQRPayload } from "@/utils/ticketService";
+import { buildQRPayload, generateTicketsForBooking } from "@/utils/ticketService";
 
 export default function MyAccountPage() {
   const [activeTab, setActiveTab] = useState<"profile" | "tickets" | "events">("profile");
@@ -139,7 +139,28 @@ export default function MyAccountPage() {
             if (!map[pass.booking_id]) map[pass.booking_id] = [];
             map[pass.booking_id].push(pass);
           });
-          setIssuedTicketsMap(map);
+
+          // Self-healing: if any verified/confirmed booking has missing passes, generate them automatically
+          const verifiedBookings = (bookingsData || []).filter(
+            (b: any) => b.status === "verified" || b.status === "confirmed"
+          );
+
+          for (const b of verifiedBookings) {
+            const expectedCount = Math.max(1, Number(b.number_of_tickets) || 1);
+            const currentPasses = map[b.id] || [];
+            if (currentPasses.length < expectedCount) {
+              try {
+                const healedPasses = await generateTicketsForBooking(supabase, b);
+                if (healedPasses && healedPasses.length > 0) {
+                  map[b.id] = healedPasses;
+                }
+              } catch (healErr) {
+                console.error("Auto ticket generation failed for booking:", b.id, healErr);
+              }
+            }
+          }
+
+          setIssuedTicketsMap({ ...map });
         }
       }
 

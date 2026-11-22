@@ -45,15 +45,54 @@ export async function generateTicketsForBooking(
     }>;
   }
 ) {
-  // 1. Check if tickets already exist for this booking
-  const { data: existingTickets } = await supabase
+  const count = Math.max(1, Number(booking.number_of_tickets) || 1);
+
+  // 1. Fetch any existing tickets for this booking
+  const { data: existingRows } = await supabase
     .from("issued_tickets")
     .select("*")
     .eq("booking_id", booking.id)
-    .order("ticket_number", { ascending: true });
+    .order("ticket_number", { ascending: true })
+    .order("created_at", { ascending: true });
 
-  if (existingTickets && existingTickets.length > 0) {
-    return existingTickets;
+  const existing = existingRows || [];
+
+  // Deduplicate if any duplicate pass numbers exist
+  const seenNumbers = new Set<number>();
+  const validExisting: typeof existing = [];
+  const duplicateIdsToDelete: string[] = [];
+
+  for (const t of existing) {
+    if (t.ticket_number >= 1 && t.ticket_number <= count && !seenNumbers.has(t.ticket_number)) {
+      seenNumbers.add(t.ticket_number);
+      validExisting.push(t);
+    } else {
+      duplicateIdsToDelete.push(t.id);
+    }
+  }
+
+  if (duplicateIdsToDelete.length > 0) {
+    await supabase.from("issued_tickets").delete().in("id", duplicateIdsToDelete);
+  }
+
+  // Re-activate any cancelled passes
+  const cancelledIds = validExisting.filter((t: any) => t.status === "cancelled").map((t: any) => t.id);
+  if (cancelledIds.length > 0) {
+    await supabase.from("issued_tickets").update({ status: "valid" }).in("id", cancelledIds);
+    validExisting.forEach((t: any) => {
+      if (t.status === "cancelled") t.status = "valid";
+    });
+  }
+
+  // If we already have the exact required number of passes (1..count), return them!
+  if (validExisting.length === count) {
+    // Ensure total_tickets matches count across all passes
+    const needTotalUpdate = validExisting.filter((t: any) => t.total_tickets !== count).map((t: any) => t.id);
+    if (needTotalUpdate.length > 0) {
+      await supabase.from("issued_tickets").update({ total_tickets: count }).in("id", needTotalUpdate);
+      validExisting.forEach((t: any) => { t.total_tickets = count; });
+    }
+    return validExisting.sort((a: any, b: any) => a.ticket_number - b.ticket_number);
   }
 
   // 2. Fetch event details if missing
@@ -70,39 +109,53 @@ export async function generateTicketsForBooking(
     }
   }
 
-  const count = Math.max(1, booking.number_of_tickets || 1);
   const bookingPrefix = booking.id.replace(/-/g, "").slice(0, 4).toUpperCase();
   const eventPrefix = eventNumber ? String(eventNumber) : "EVT";
 
+  // 3. Insert ONLY the missing ticket numbers so we reach exactly count passes
   const ticketsToInsert = [];
   for (let i = 1; i <= count; i++) {
-    const ticketCode = `EG-${eventPrefix}-${bookingPrefix}${randomCode(5)}-${i}`;
+    if (!seenNumbers.has(i)) {
+      const ticketCode = `EG-${eventPrefix}-${bookingPrefix}${randomCode(5)}-${i}`;
 
-    ticketsToInsert.push({
-      booking_id: booking.id,
-      event_id: booking.event_id,
-      ticket_number: i,
-      total_tickets: count,
-      ticket_type: booking.ticket_type || "Standard",
-      ticket_code: ticketCode,
-      holder_name: booking.full_name,
-      holder_email: booking.user_email,
-      holder_phone: booking.phone_number || "",
-      status: "valid",
-    });
+      ticketsToInsert.push({
+        booking_id: booking.id,
+        event_id: booking.event_id,
+        ticket_number: i,
+        total_tickets: count,
+        ticket_type: booking.ticket_type || "Standard",
+        ticket_code: ticketCode,
+        holder_name: booking.full_name || "Guest",
+        holder_email: booking.user_email || "",
+        holder_phone: booking.phone_number || "",
+        status: "valid",
+      });
+    }
   }
 
-  const { data: insertedTickets, error } = await supabase
-    .from("issued_tickets")
-    .insert(ticketsToInsert)
-    .select();
+  let newlyInserted: any[] = [];
+  if (ticketsToInsert.length > 0) {
+    const { data: insertedTickets, error } = await supabase
+      .from("issued_tickets")
+      .insert(ticketsToInsert)
+      .select();
 
-  if (error) {
-    console.error("Error inserting issued_tickets:", error);
-    throw error;
+    if (error) {
+      console.error("Error inserting issued_tickets:", error);
+      throw error;
+    }
+    newlyInserted = insertedTickets || [];
   }
 
-  return insertedTickets || [];
+  // Ensure any existing passes have total_tickets matching count
+  const needTotalUpdate = validExisting.filter((t: any) => t.total_tickets !== count).map((t: any) => t.id);
+  if (needTotalUpdate.length > 0) {
+    await supabase.from("issued_tickets").update({ total_tickets: count }).in("id", needTotalUpdate);
+    validExisting.forEach((t: any) => { t.total_tickets = count; });
+  }
+
+  const allPasses = [...validExisting, ...newlyInserted];
+  return allPasses.sort((a: any, b: any) => a.ticket_number - b.ticket_number);
 }
 
 /**

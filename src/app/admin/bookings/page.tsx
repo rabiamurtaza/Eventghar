@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
+import { generateTicketsForBooking } from "@/utils/ticketService";
 import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
@@ -202,6 +203,60 @@ export default function AdminBookingsPage() {
 
     inFlightRef.current.delete(id);
     setActionLoading(null);
+  };
+
+  const [batchGenerating, setBatchGenerating] = useState(false);
+
+  const missingPassesBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      if (b.status !== "verified" && b.status !== "confirmed") return false;
+      const issuedCount = (issuedTickets || []).filter((t: any) => t.booking_id === b.id).length;
+      const targetCount = Math.max(1, Number(b.number_of_tickets) || 1);
+      return issuedCount < targetCount;
+    });
+  }, [bookings, issuedTickets]);
+
+  const handleGenerateMissingTickets = async (booking: any) => {
+    if (inFlightRef.current.has(booking.id)) return;
+    inFlightRef.current.add(booking.id);
+    setActionLoading(booking.id);
+
+    try {
+      const supabase = createClient();
+      await generateTicketsForBooking(supabase, booking);
+      await fetchIssuedTickets();
+      alert(`Passes successfully generated for ${booking.full_name || 'this booking'}!`);
+    } catch (err: any) {
+      alert(`Failed to generate passes: ${err.message || err}`);
+    } finally {
+      inFlightRef.current.delete(booking.id);
+      setActionLoading(null);
+    }
+  };
+
+  const handleGenerateAllMissingPasses = async () => {
+    if (batchGenerating || missingPassesBookings.length === 0) return;
+    const ok = window.confirm(`Generate missing QR passes for ${missingPassesBookings.length} verified booking(s)?`);
+    if (!ok) return;
+
+    setBatchGenerating(true);
+    const supabase = createClient();
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const b of missingPassesBookings) {
+      try {
+        await generateTicketsForBooking(supabase, b);
+        successCount++;
+      } catch (err) {
+        console.error("Batch ticket generation error for", b.id, err);
+        failCount++;
+      }
+    }
+
+    await fetchIssuedTickets();
+    setBatchGenerating(false);
+    alert(`Finished generating passes!\nSuccessfully generated: ${successCount}\nFailed: ${failCount}`);
   };
 
   const downloadEventBookingsPDF = async () => {
@@ -584,6 +639,32 @@ export default function AdminBookingsPage() {
             </select>
           </div>
 
+          {/* Alert Banner: Missing Passes on Verified Bookings */}
+          {missingPassesBookings.length > 0 && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 font-bold text-base">
+                  ⚠️
+                </span>
+                <div>
+                  <div className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                    {missingPassesBookings.length} verified {missingPassesBookings.length === 1 ? "booking has" : "bookings have"} missing QR passes
+                  </div>
+                  <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Some confirmed attendees do not have their full QR passes in the system yet.
+                  </div>
+                </div>
+              </div>
+              <button
+                disabled={batchGenerating}
+                onClick={handleGenerateAllMissingPasses}
+                className="rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
+              >
+                {batchGenerating ? "Generating..." : "⚡ Generate All Missing Passes"}
+              </button>
+            </div>
+          )}
+
           {/* Table Area */}
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden shadow-sm">
             {loading ? (
@@ -720,18 +801,42 @@ export default function AdminBookingsPage() {
                                 </div>
                               </>
                             ) : b.status === 'verified' || b.status === 'confirmed' ? (
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-green-800 dark:bg-green-900/40 dark:text-green-300">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-                                  Verified
-                                </span>
-                                <button 
-                                  onClick={() => updateStatus(b.id, 'rejected')}
-                                  title="Mark as rejected"
-                                  className="text-neutral-400 hover:text-red-500 text-xs transition"
-                                >
-                                  ✕
-                                </button>
+                              <div className="flex flex-col gap-1.5 items-start">
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                                    Verified
+                                  </span>
+                                  <button 
+                                    onClick={() => updateStatus(b.id, 'rejected')}
+                                    title="Mark as rejected"
+                                    className="text-neutral-400 hover:text-red-500 text-xs transition"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                {(() => {
+                                  const issuedForBooking = (issuedTickets || []).filter((t: any) => t.booking_id === b.id);
+                                  const targetCount = Math.max(1, Number(b.number_of_tickets) || 1);
+                                  if (issuedForBooking.length < targetCount) {
+                                    return (
+                                      <div className="mt-1 flex flex-col gap-1">
+                                        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                          Passes: {issuedForBooking.length} of {targetCount} issued
+                                        </span>
+                                        <button
+                                          disabled={actionLoading === b.id}
+                                          onClick={() => handleGenerateMissingTickets(b)}
+                                          className="inline-flex items-center gap-1 rounded bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 text-xs font-bold transition shadow-sm disabled:opacity-50 cursor-pointer"
+                                          title="Generate missing QR passes for this verified booking"
+                                        >
+                                          {actionLoading === b.id ? "Generating..." : "⚡ Generate Passes"}
+                                        </button>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
