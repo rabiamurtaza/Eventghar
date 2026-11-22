@@ -324,7 +324,7 @@ export default function AdminBookingsPage() {
         b.events ? `${b.events.event_number ? `#${b.events.event_number} - ` : ''}${b.events.title}` : "Unknown",
         b.full_name || "N/A",
         b.user_email || "N/A",
-        b.phone_number || "N/A",
+        b.cnic ? `${b.phone_number || 'N/A'}\nCNIC: ${b.cnic}` : (b.phone_number || "N/A"),
         `${b.ticket_type || 'Standard'} (Qty: ${b.number_of_tickets || 1})`,
         formatRs(getBookingPrice(b).total),
         b.status
@@ -429,7 +429,8 @@ export default function AdminBookingsPage() {
       b.full_name?.toLowerCase().includes(search.toLowerCase()) || 
       b.user_email?.toLowerCase().includes(search.toLowerCase()) ||
       b.events?.title?.toLowerCase().includes(search.toLowerCase()) ||
-      b.phone_number?.includes(search);
+      b.phone_number?.includes(search) ||
+      b.cnic?.includes(search);
     const matchesEvent = eventFilter === "All" || b.event_id === eventFilter;
     const matchesStatus = statusFilter === "All" || 
       (statusFilter === "verified" ? (b.status === "verified" || b.status === "confirmed") : b.status === statusFilter);
@@ -762,6 +763,11 @@ export default function AdminBookingsPage() {
                           <div className="font-semibold text-neutral-900 dark:text-white">{b.full_name || 'N/A'}</div>
                           <div className="text-xs text-neutral-500">{b.user_email}</div>
                           <div className="text-xs text-neutral-400">{b.phone_number || 'No phone'}</div>
+                          {b.cnic && (
+                            <div className="mt-1 inline-flex items-center gap-1 rounded bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 text-[11px] font-mono font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
+                              <span className="text-[10px] text-purple-500 font-sans uppercase font-bold">CNIC</span> {b.cnic}
+                            </div>
+                          )}
                         </td>
 
                         {/* Ticket Type & Quantity */}

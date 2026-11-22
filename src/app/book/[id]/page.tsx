@@ -137,6 +137,7 @@ export default function BookTicketPage() {
   // Form State
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [cnic, setCnic] = useState("");
   const [hasSavedPhone, setHasSavedPhone] = useState(false);
   const [ticketType, setTicketType] = useState("");
   const [numberOfTickets, setNumberOfTickets] = useState(1);
@@ -161,6 +162,13 @@ export default function BookTicketPage() {
     }
   };
 
+  const handleCnicChange = (val: string) => {
+    const digits = val.replace(/\D/g, "").slice(0, 13);
+    if (digits.length <= 5) setCnic(digits);
+    else if (digits.length <= 12) setCnic(`${digits.slice(0, 5)}-${digits.slice(5)}`);
+    else setCnic(`${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`);
+  };
+
   useEffect(() => {
     async function init() {
       const supabase = createClient();
@@ -175,25 +183,28 @@ export default function BookTicketPage() {
       // Pre-fill user details from users or organizers table or metadata
       let fetchedName = "";
       let fetchedPhone = "";
+      let fetchedCnic = "";
 
       const { data: userProfile } = await supabase
         .from('users')
-        .select('full_name, phone_number')
+        .select('full_name, phone_number, cnic')
         .eq('id', session.user.id)
         .maybeSingle();
 
       if (userProfile) {
         fetchedName = userProfile.full_name || "";
         fetchedPhone = userProfile.phone_number || "";
+        fetchedCnic = userProfile.cnic || "";
       } else {
         const { data: orgProfile } = await supabase
           .from('organizers')
-          .select('full_name, phone_number')
+          .select('full_name, phone_number, cnic')
           .eq('id', session.user.id)
           .maybeSingle();
         if (orgProfile) {
           fetchedName = orgProfile.full_name || "";
           fetchedPhone = orgProfile.phone_number || "";
+          fetchedCnic = orgProfile.cnic || "";
         }
       }
 
@@ -211,6 +222,9 @@ export default function BookTicketPage() {
         setHasSavedPhone(true);
       } else {
         setHasSavedPhone(false);
+      }
+      if (fetchedCnic && fetchedCnic.trim().length > 0) {
+        setCnic(fetchedCnic.trim());
       }
 
       let query = supabase.from('events').select('*');
@@ -342,27 +356,32 @@ export default function BookTicketPage() {
 
       const { data: uProf } = await supabase
         .from('users')
-        .select('full_name, phone_number')
+        .select('full_name, phone_number, cnic')
         .eq('id', activeSession.user.id)
         .maybeSingle();
 
       let pName = uProf?.full_name || "";
       let pPhone = uProf?.phone_number || "";
+      let pCnic = uProf?.cnic || "";
 
-      if (!pPhone) {
+      if (!pPhone || !pCnic) {
         const { data: oProf } = await supabase
           .from('organizers')
-          .select('full_name, phone_number')
+          .select('full_name, phone_number, cnic')
           .eq('id', activeSession.user.id)
           .maybeSingle();
         pName = oProf?.full_name || pName;
-        pPhone = oProf?.phone_number || "";
+        pPhone = oProf?.phone_number || pPhone;
+        pCnic = oProf?.cnic || pCnic;
       }
 
       if (pName) setFullName(pName);
       if (pPhone && pPhone.trim().length > 0) {
         setPhoneNumber(pPhone.trim());
         setHasSavedPhone(true);
+      }
+      if (pCnic && pCnic.trim().length > 0) {
+        setCnic(pCnic.trim());
       }
     };
 
@@ -413,6 +432,8 @@ export default function BookTicketPage() {
     e.preventDefault();
     setSubmitting(true);
     setErrorMsg("");
+
+    const supabase = createClient();
 
     if (!event || !event.id) {
       setErrorMsg("Event could not be found. Please refresh and try again.");
@@ -471,6 +492,36 @@ export default function BookTicketPage() {
       return;
     }
 
+    let formattedCnic: string | null = null;
+    if (event?.requires_cnic) {
+      const cleanDigits = (cnic || "").replace(/\D/g, "");
+      if (cleanDigits.length !== 13) {
+        setErrorMsg("Please provide a valid 13-digit CNIC in the format XXXXX-XXXXXXX-X.");
+        setSubmitting(false);
+        return;
+      }
+      formattedCnic = `${cleanDigits.slice(0, 5)}-${cleanDigits.slice(5, 12)}-${cleanDigits.slice(12, 13)}`;
+
+      // Check for existing active booking with this CNIC for this event
+      const { data: existingBookings, error: cnicCheckErr } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('event_id', event.id)
+        .eq('cnic', formattedCnic)
+        .in('status', ['pending', 'verified', 'confirmed'])
+        .limit(1);
+
+      if (cnicCheckErr) {
+        console.error("Error verifying CNIC uniqueness:", cnicCheckErr);
+      }
+
+      if (existingBookings && existingBookings.length > 0) {
+        setErrorMsg("A booking with this CNIC already exists for this event. Each attendee must book with their own unique CNIC. Please check the CNIC entered or contact support if you need assistance.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     // Payment screenshot is compulsory for every booking.
     if (!paymentScreenshot) {
       setErrorMsg("Payment screenshot is required.");
@@ -484,8 +535,6 @@ export default function BookTicketPage() {
       setSubmitting(false);
       return;
     }
-
-    const supabase = createClient();
 
     // Verify the latest ticket counts at the time of submission to prevent overselling
     // (the database enforces the same limits again when the booking is saved)
@@ -520,11 +569,12 @@ export default function BookTicketPage() {
         paymentScreenshotUrl = pData.publicUrl;
       }
 
-      const payload = {
+      const payload: any = {
         event_id: event.id,
         user_email: session.user.email,
         full_name: fullName.trim(),
         phone_number: cleanPhone,
+        cnic: formattedCnic,
         ticket_type: ticketType || 'Standard',
         number_of_tickets: qty,
         payment_screenshot_url: paymentScreenshotUrl,
@@ -535,7 +585,7 @@ export default function BookTicketPage() {
       const { error: insertError } = await supabase.from('bookings').insert([payload]);
       if (insertError) throw insertError;
 
-      // Update phone_number and full_name in appropriate profile without overwriting organizer role
+      // Update phone_number, full_name, and cnic in appropriate profile without overwriting organizer role
       try {
         const [{ data: orgCheck }, { data: adminCheck }] = await Promise.all([
           supabase.from('organizers').select('id').eq('id', session.user.id).maybeSingle(),
@@ -545,21 +595,25 @@ export default function BookTicketPage() {
         if (adminCheck) {
           // Admins are not regular users - don't create a "users" record for them
         } else if (orgCheck) {
-          await supabase.from('organizers').update({
+          const orgUpdates: any = {
             full_name: fullName.trim(),
             phone_number: cleanPhone,
-          }).eq('id', session.user.id);
+          };
+          if (formattedCnic) orgUpdates.cnic = formattedCnic;
+          await supabase.from('organizers').update(orgUpdates).eq('id', session.user.id);
         } else {
-          await supabase.from('users').upsert({
+          const userUpdates: any = {
             id: session.user.id,
             email: session.user.email,
             full_name: fullName.trim(),
             phone_number: cleanPhone,
-          }, { onConflict: 'id' });
+          };
+          if (formattedCnic) userUpdates.cnic = formattedCnic;
+          await supabase.from('users').upsert(userUpdates, { onConflict: 'id' });
         }
         setHasSavedPhone(true);
       } catch (profileErr) {
-        console.error("Failed to update user profile with phone number:", profileErr);
+        console.error("Failed to update user profile with phone number / CNIC:", profileErr);
       }
 
       setSuccess(true);
@@ -815,6 +869,27 @@ export default function BookTicketPage() {
                 )}
               </div>
             </div>
+
+            {/* CNIC Number (compulsory only for events where requires_cnic is true) */}
+            {event?.requires_cnic && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  CNIC Number <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  required 
+                  value={cnic} 
+                  onChange={e => handleCnicChange(e.target.value)} 
+                  placeholder="XXXXX-XXXXXXX-X" 
+                  maxLength={15}
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 font-mono outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
+                />
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Required for travel & attendee manifest (13 digits: 42101-1234567-1). Only one booking is permitted per CNIC.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>

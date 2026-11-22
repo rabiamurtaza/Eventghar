@@ -251,7 +251,7 @@ export default function OrganizerBookingsPage() {
         b.events?.title || "Unknown",
         b.full_name,
         b.user_email,
-        b.phone_number,
+        b.cnic ? `${b.phone_number || 'N/A'}\nCNIC: ${b.cnic}` : (b.phone_number || "N/A"),
         `${b.ticket_type} (Qty: ${b.number_of_tickets})`,
         formatRs(getBookingPrice(b).total),
         b.status
@@ -356,7 +356,8 @@ export default function OrganizerBookingsPage() {
     const matchesSearch = b.full_name?.toLowerCase().includes(search.toLowerCase()) || 
       b.user_email?.toLowerCase().includes(search.toLowerCase()) ||
       b.events?.title?.toLowerCase().includes(search.toLowerCase()) ||
-      b.phone_number?.includes(search);
+      b.phone_number?.includes(search) ||
+      b.cnic?.includes(search);
     const matchesEvent = eventFilter === "All" || b.event_id === eventFilter;
     return matchesSearch && matchesEvent;
   });
@@ -553,6 +554,11 @@ export default function OrganizerBookingsPage() {
                           <div className="font-semibold text-neutral-900 dark:text-white">{booking.full_name}</div>
                           <div className="text-xs text-neutral-500">{booking.user_email}</div>
                           <div className="text-xs text-neutral-400">{booking.phone_number}</div>
+                          {booking.cnic && (
+                            <div className="mt-1 inline-flex items-center gap-1 rounded bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 text-[11px] font-mono font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
+                              <span className="text-[10px] text-purple-500 font-sans uppercase font-bold">CNIC</span> {booking.cnic}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <div className="font-medium text-neutral-900 dark:text-white">{booking.ticket_type}</div>

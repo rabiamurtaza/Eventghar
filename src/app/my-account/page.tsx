@@ -14,6 +14,7 @@ export default function MyAccountPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [cnic, setCnic] = useState("");
   const [role, setRole] = useState("user");
   const [accountNumber, setAccountNumber] = useState<number | null>(null);
   const [profileMessage, setProfileMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
@@ -67,6 +68,7 @@ export default function MyAccountPage() {
         setAccountNumber(organizerData.organizer_number || null);
         setFullName(organizerData.full_name || session.user.user_metadata?.full_name || "");
         setPhoneNumber(organizerData.phone_number || "");
+        setCnic(organizerData.cnic || "");
         if (!organizerData.phone_number) setIsEditingProfile(true);
 
         // Fetch events hosted by this organizer
@@ -91,6 +93,7 @@ export default function MyAccountPage() {
         const resolvedName = userData?.full_name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || "";
         setFullName(resolvedName);
         setPhoneNumber(userData?.phone_number || "");
+        setCnic(userData?.cnic || "");
         if (!userData?.phone_number) setIsEditingProfile(true);
 
         if (!userData?.full_name && resolvedName) {
@@ -200,6 +203,13 @@ export default function MyAccountPage() {
     };
   }, [router, supabase]);
 
+  const formatCnicInput = (val: string) => {
+    const digits = val.replace(/\D/g, "").slice(0, 13);
+    if (digits.length <= 5) return digits;
+    if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12, 13)}`;
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileMessage(null);
@@ -213,11 +223,20 @@ export default function MyAccountPage() {
       return;
     }
 
+    // Validate CNIC (13 digits: XXXXX-XXXXXXX-X if provided)
+    if (cnic && !/^\d{5}-\d{7}-\d{1}$/.test(cnic.trim())) {
+      setProfileMessage({ type: "error", text: "CNIC must be a valid 13-digit number in the format XXXXX-XXXXXXX-X." });
+      return;
+    }
+
+    const cleanCnic = cnic ? cnic.trim() : null;
+
     const updates = {
       id: session.user.id,
       email: session.user.email,
       full_name: fullName,
       phone_number: phoneNumber,
+      cnic: cleanCnic,
     };
 
     let error;
@@ -226,7 +245,7 @@ export default function MyAccountPage() {
       // Organizers: update their existing row only (never insert/delete role records from here)
       const { data: updatedRows, error: updateErr } = await supabase
         .from("organizers")
-        .update({ full_name: fullName, phone_number: phoneNumber })
+        .update({ full_name: fullName, phone_number: phoneNumber, cnic: cleanCnic })
         .eq("id", session.user.id)
         .select("id");
       error = updateErr || (!updatedRows || updatedRows.length === 0
@@ -439,7 +458,18 @@ export default function MyAccountPage() {
             {/* Profile Content */}
             {activeTab === "profile" && (
               <div className="bg-white dark:bg-black rounded-xl border border-neutral-200 dark:border-neutral-800 p-6 sm:p-8 shadow-sm">
-                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white mb-6">Profile Information</h2>
+                <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+                  <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Profile Information</h2>
+                  {fullName && phoneNumber && cnic ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800/40">
+                      <span>✓</span> Profile 100% Complete (Identity Verified)
+                    </span>
+                  ) : fullName && phoneNumber ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/30">
+                      <span>ℹ</span> Basic Profile Ready
+                    </span>
+                  ) : null}
+                </div>
                 
                 {profileMessage && (
                   <div className={`p-4 mb-6 rounded-lg text-sm ${
@@ -488,6 +518,21 @@ export default function MyAccountPage() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                        CNIC Number <span className="text-xs text-neutral-400 font-normal">(Optional — pre-fills trip & travel bookings)</span>
+                      </label>
+                      <input 
+                        type="text" 
+                        value={cnic}
+                        onChange={(e) => setCnic(formatCnicInput(e.target.value))}
+                        placeholder="XXXXX-XXXXXXX-X" 
+                        maxLength={15}
+                        className="mt-1 block w-full rounded-lg border border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 py-2 text-neutral-900 dark:text-white font-mono outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition" 
+                      />
+                      <p className="mt-1 text-xs text-neutral-500">13-digit Pakistani format: 42101-1234567-1</p>
+                    </div>
+
                     <div className="flex gap-4">
                       <button 
                         type="submit"
@@ -520,6 +565,10 @@ export default function MyAccountPage() {
                       <div>
                         <h3 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Phone Number</h3>
                         <p className="mt-1 text-lg font-medium text-neutral-900 dark:text-white">{phoneNumber || "Not provided"}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">CNIC Number</h3>
+                        <p className="mt-1 text-lg font-medium text-neutral-900 dark:text-white font-mono">{cnic || "Not provided"}</p>
                       </div>
                       <div>
                         <h3 className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Account Type</h3>
