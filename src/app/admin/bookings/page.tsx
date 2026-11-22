@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
-import { generateTicketsForBooking } from "@/utils/ticketService";
+import { generateTicketsForBooking, playSuccessChime } from "@/utils/ticketService";
 import QRScannerModal from "@/components/QRScannerModal";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
@@ -257,6 +257,58 @@ export default function AdminBookingsPage() {
     await fetchIssuedTickets();
     setBatchGenerating(false);
     alert(`Finished generating passes!\nSuccessfully generated: ${successCount}\nFailed: ${failCount}`);
+  };
+
+  const [admitActionLoading, setAdmitActionLoading] = useState<string | null>(null);
+
+  const handleManualAdmit = async (ticket: any) => {
+    if (admitActionLoading) return;
+    const attendee = ticket.holder_name || "this attendee";
+    const passInfo = `Pass ${ticket.ticket_number} of ${ticket.total_tickets}`;
+    const eventName = ticket.events?.title || "this event";
+
+    const ok = window.confirm(
+      `Admit ${attendee} (${passInfo}) for "${eventName}"?\n\nOnce admitted, this pass will be marked as used and its QR code cannot be scanned again.`
+    );
+    if (!ok) return;
+
+    setAdmitActionLoading(ticket.id);
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const nowIso = new Date().toISOString();
+
+    try {
+      const { data: updatedRows, error } = await supabase
+        .from("issued_tickets")
+        .update({
+          status: "used",
+          scanned_at: nowIso,
+          scanned_by: session?.user?.id || null,
+        })
+        .eq("id", ticket.id)
+        .eq("status", "valid")
+        .select("id");
+
+      if (error) {
+        alert(`Failed to admit ticket: ${error.message}`);
+        return;
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        alert("This ticket was already admitted or scanned earlier!");
+        fetchIssuedTickets();
+        return;
+      }
+
+      playSuccessChime();
+      setIssuedTickets((prev) =>
+        prev.map((t) => (t.id === ticket.id ? { ...t, status: "used", scanned_at: nowIso } : t))
+      );
+    } catch (err: any) {
+      alert(`Unexpected error admitting ticket: ${err.message || err}`);
+    } finally {
+      setAdmitActionLoading(null);
+    }
   };
 
   const downloadEventBookingsPDF = async () => {
@@ -954,6 +1006,7 @@ export default function AdminBookingsPage() {
                       <th className="px-6 py-4">Pass Info</th>
                       <th className="px-6 py-4">Gate Status</th>
                       <th className="px-6 py-4">Scanned Time</th>
+                      <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -1016,6 +1069,25 @@ export default function AdminBookingsPage() {
                             </span>
                           ) : (
                             <span className="text-neutral-400">-</span>
+                          )}
+                        </td>
+
+                        {/* Action Column: Manual Gate Admit */}
+                        <td className="px-6 py-4 text-right">
+                          {ticket.status === 'used' ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
+                              ✓ Admitted
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={admitActionLoading === ticket.id}
+                              onClick={() => handleManualAdmit(ticket)}
+                              className="rounded-lg bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-sm disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
+                              title="Manually admit this attendee at gate"
+                            >
+                              {admitActionLoading === ticket.id ? "..." : "✓ Admit"}
+                            </button>
                           )}
                         </td>
 
