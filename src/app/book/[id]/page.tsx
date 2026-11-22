@@ -867,6 +867,9 @@ export default function BookTicketPage() {
                     className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
                   />
                 )}
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Please enter a valid WhatsApp number.
+                </p>
               </div>
             </div>
 
@@ -886,7 +889,7 @@ export default function BookTicketPage() {
                   className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 font-mono outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" 
                 />
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  Required for travel & attendee manifest (13 digits: 42101-1234567-1). Only one booking is permitted per CNIC.
+                  Follow the correct format. Only one booking is permitted per CNIC.
                 </p>
               </div>
             )}
