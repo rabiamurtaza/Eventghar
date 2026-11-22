@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
+import { getTimeLabels } from "@/utils/eventTimeLabels";
 
 interface EventDetailsModalProps {
   event: any | null;
@@ -221,9 +222,11 @@ export default function EventDetailsModal({
   const title = toTitleCase(event.title || "Untitled Event");
   const category = event.category || "Event";
   const city = event.city || "";
+  const timeLabels = getTimeLabels(event?.is_trip);
   const formattedDate = formatFullDate(event.start_date);
   const formattedTime = format12HourTime(event.start_time);
   const formattedDoors = format12HourTime(event.doors_open_time);
+  const formattedEnd = format12HourTime(event.end_time);
   const venue = event.venue_name || event.full_address || "";
   const mapsUrl = event.google_maps_link || (venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue + " " + city)}` : "");
   const priceDisplay = getLowestPriceDisplay(event);
@@ -362,7 +365,7 @@ export default function EventDetailsModal({
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                      Time
+                      {timeLabels.modalTime}
                     </span>
                     <span className="text-sm font-semibold text-[#1c1230] dark:text-white truncate block">
                       {formattedTime}
@@ -381,10 +384,29 @@ export default function EventDetailsModal({
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                      Doors open
+                      {timeLabels.doorsOpen}
                     </span>
                     <span className="text-sm font-semibold text-[#1c1230] dark:text-white truncate block">
                       {formattedDoors}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Row 3.5: Expected Return Time / End Time (only if present) */}
+              {formattedEnd && (
+                <div className="flex items-center gap-3">
+                  <div className="h-[46px] w-[46px] rounded-lg bg-[#f6effd] dark:bg-[#23153c] text-[#6a17b8] dark:text-[#c084fc] flex items-center justify-center shrink-0 border border-[#ebdcfb] dark:border-[#352453] shadow-2xs">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+                      {timeLabels.endTime}
+                    </span>
+                    <span className="text-sm font-semibold text-[#1c1230] dark:text-white truncate block">
+                      {formattedEnd}
                     </span>
                   </div>
                 </div>

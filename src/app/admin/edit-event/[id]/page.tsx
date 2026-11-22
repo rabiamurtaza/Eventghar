@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { deleteEventCascade } from "@/utils/eventService";
 import { validateEventForm, findEventEditWarnings, parsePriceInput } from "@/utils/eventValidation";
+import { getTimeLabels } from "@/utils/eventTimeLabels";
 
 export default function AdminEditEvent() {
   const params = useParams();
@@ -78,6 +79,7 @@ export default function AdminEditEvent() {
           sales_deadline: data.sales_deadline ? data.sales_deadline.slice(0,16) : '',
           is_student_only: data.is_student_only || false,
           requires_cnic: data.requires_cnic || false,
+          is_trip: Boolean(data.is_trip),
           university_name: data.university_name || '',
           payment_instructions: data.payment_instructions || '',
           terms_conditions: data.terms_conditions || '',
@@ -164,6 +166,7 @@ export default function AdminEditEvent() {
     sales_deadline: "",
     is_student_only: false,
     requires_cnic: false,
+    is_trip: false,
     university_name: "",
     payment_instructions: "",
     terms_conditions: "",
@@ -260,6 +263,7 @@ export default function AdminEditEvent() {
 
     const payload: any = {
       ...formData,
+      is_trip: Boolean(formData.is_trip),
       organizer_id: formData.organizer_id || null,
       total_tickets: formData.total_tickets ? parseInt(formData.total_tickets) : null,
       max_tickets_per_person: formData.is_student_only ? 1 : (formData.max_tickets_per_person ? parseInt(formData.max_tickets_per_person) : null),
@@ -442,35 +446,58 @@ export default function AdminEditEvent() {
           </div>
 
           {/* Section 2: Dates & Times */}
-          <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">2. Dates & Times</h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Start Date</label>
-                <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">End Date (Optional)</label>
-                <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
-              </div>
+          {(() => {
+            const timeLabels = getTimeLabels(formData.is_trip);
+            return (
+              <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">
+                <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6 border-b border-neutral-100 dark:border-neutral-800 pb-2">2. Dates & Times</h2>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div className="sm:col-span-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/60 p-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        name="is_trip" 
+                        checked={Boolean(formData.is_trip)} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, is_trip: e.target.checked }))} 
+                        className="mt-0.5 w-5 h-5 rounded border-neutral-300 text-green-500 focus:ring-green-500 dark:border-neutral-600 dark:bg-neutral-900" 
+                      />
+                      <div>
+                        <span className="text-sm font-semibold text-neutral-900 dark:text-white">This is a trip</span>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          Switches time labels to trip wording: Reporting Time (gather), Departure Time (leaves), and Expected Return Time.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Doors Open Time</label>
-                <input type="time" name="doors_open_time" value={formData.doors_open_time} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Start Time</label>
-                  <input type="time" name="start_time" value={formData.start_time} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Start Date</label>
+                    <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">End Date (Optional)</label>
+                    <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{timeLabels.doorsOpenTime}</label>
+                    <input type="time" name="doors_open_time" value={formData.doors_open_time} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{timeLabels.startTime}</label>
+                      <input type="time" name="start_time" value={formData.start_time} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{timeLabels.endTime}</label>
+                      <input type="time" name="end_time" value={formData.end_time} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">End Time</label>
-                  <input type="time" name="end_time" value={formData.end_time} onChange={handleChange} className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white" />
-                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Section 3: Location & Venue */}
           <div className="bg-white dark:bg-neutral-900 p-6 sm:p-8 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm">

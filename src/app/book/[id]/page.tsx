@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
+import { getTimeLabels } from "@/utils/eventTimeLabels";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
@@ -725,13 +726,18 @@ export default function BookTicketPage() {
               </span>
             )}
 
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950 p-3.5 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
-              {event.doors_open_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Doors Open</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.doors_open_time)}</span></div>}
-              {event.start_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Start Time</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.start_time)}</span></div>}
-              {event.end_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">End Time</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.end_time)}</span></div>}
-              {event.sales_deadline && <div className="col-span-2 sm:col-span-1"><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Sales Deadline</span><span className="text-neutral-900 dark:text-white font-medium">{formatDeadlineDisplay(event.sales_deadline)}</span></div>}
-              {event.organizer_name && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Organizer</span><span className="text-neutral-900 dark:text-white font-medium">{event.organizer_name}</span></div>}
-            </div>
+            {(() => {
+              const timeLabels = getTimeLabels(event.is_trip);
+              return (
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-4 mb-6 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-950 p-3.5 sm:p-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
+                  {event.doors_open_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">{timeLabels.doorsOpen}</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.doors_open_time)}</span></div>}
+                  {event.start_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">{timeLabels.startTime}</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.start_time)}</span></div>}
+                  {event.end_time && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">{timeLabels.endTime}</span><span className="text-neutral-900 dark:text-white font-medium">{format12HourTime(event.end_time)}</span></div>}
+                  {event.sales_deadline && <div className="col-span-2 sm:col-span-1"><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Sales Deadline</span><span className="text-neutral-900 dark:text-white font-medium">{formatDeadlineDisplay(event.sales_deadline)}</span></div>}
+                  {event.organizer_name && <div><span className="font-semibold text-neutral-500 dark:text-neutral-400 text-[10px] sm:text-xs uppercase tracking-wider block">Organizer</span><span className="text-neutral-900 dark:text-white font-medium">{event.organizer_name}</span></div>}
+                </div>
+              );
+            })()}
             <p className="text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{event.description}</p>
           </div>
 
