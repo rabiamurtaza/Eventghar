@@ -288,13 +288,23 @@ export default function TicketPassCard({
           {statusLabel}
         </div>
 
-        {/* 200x200 QR Box */}
-        <div className="w-[200px] h-[200px] min-w-[200px] min-h-[200px] bg-white rounded-[12px] border border-[#E5E7EB] p-[10px] my-0 mt-[18px] mb-[14px] mx-auto flex items-center justify-center">
+        {/* 200x200 QR Box (Hardened against iOS Dark Mode, Smart Invert & blend modes) */}
+        <div
+          style={{ colorScheme: "light" }}
+          className="w-[200px] h-[200px] min-w-[200px] min-h-[200px] !bg-white rounded-[12px] border border-[#E5E7EB] p-[10px] my-0 mt-[18px] mb-[14px] mx-auto flex items-center justify-center isolate"
+        >
           <div
             style={{ opacity: isInactive ? 0.35 : 1 }}
             className="flex items-center justify-center w-full h-full"
           >
-            <QRCodeSVG value={qrValue} size={180} level="M" marginSize={0} />
+            <QRCodeSVG
+              value={qrValue}
+              size={180}
+              level="M"
+              marginSize={0}
+              bgColor="#FFFFFF"
+              fgColor="#000000"
+            />
           </div>
         </div>
 
