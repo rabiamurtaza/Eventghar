@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import EventDetailsModal from "@/components/EventDetailsModal";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
 import SectionHeader from "@/components/SectionHeader";
+import EventSearchButton from "@/components/EventSearchButton";
 
 import { CITIES as SITE_CITIES, CATEGORIES as SITE_CATEGORIES } from "@/config/site";
 
@@ -156,57 +157,44 @@ export default function EventsSection() {
 
   return (
     <section id="events" className="scroll-mt-24 w-full">
-      {/* 1. SECTION HEADER */}
+      {/* 1. SECTION HEADER, with ONE search button (search box + city + category in a panel) */}
       <SectionHeader
         title="Explore Upcoming Events"
-        subtitle="Filter by city, category, or search to find exactly what you are looking for."
+        subtitle="Find an event by name, venue, city or category."
+        action={
+          <EventSearchButton
+            keyword={keyword}
+            onKeyword={setKeyword}
+            city={city}
+            onCity={setCity}
+            category={category}
+            onCategory={setCategory}
+            cities={CITIES}
+            categories={CATEGORIES}
+          />
+        }
       />
 
-      {/* 2. FILTER BAR: One consolidated white rounded bar with taller fields and bigger labels */}
-      <div className="mb-8 sm:mb-10 rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-neutral-200/90">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-6 items-end">
-          
-          <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#1c1230] mb-1 sm:mb-1.5">
-              City
-            </label>
-            <select 
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="w-full h-11 sm:h-12 rounded-xl border border-neutral-300 bg-neutral-50 px-3.5 text-xs sm:text-sm text-[#1c1230] outline-none focus:border-[#7a1fd1] focus:ring-1 focus:ring-[#7a1fd1] transition"
-            >
-              {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#1c1230] mb-1 sm:mb-1.5">
-              Category
-            </label>
-            <select 
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-11 sm:h-12 rounded-xl border border-neutral-300 bg-neutral-50 px-3.5 text-xs sm:text-sm text-[#1c1230] outline-none focus:border-[#7a1fd1] focus:ring-1 focus:ring-[#7a1fd1] transition"
-            >
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#1c1230] mb-1 sm:mb-1.5">
-              Search
-            </label>
-            <input 
-              type="text" 
-              placeholder="Search events or venues..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="w-full h-11 sm:h-12 rounded-xl border border-neutral-300 bg-neutral-50 px-3.5 text-xs sm:text-sm text-[#1c1230] outline-none focus:border-[#7a1fd1] focus:ring-1 focus:ring-[#7a1fd1] transition placeholder:text-neutral-400"
-            />
-          </div>
-
+      {/* 2. What is being filtered right now (only shown while a search or filter is on) */}
+      {(keyword.trim() || city !== "All" || category !== "All") && (
+        <div className="mb-6 -mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm text-neutral-600">
+          <span className="font-semibold text-[#1c1230]">Showing:</span>
+          {keyword.trim() && <span className="rounded-full bg-[#f6effd] px-3 py-1 font-medium text-[#6a17b8]">&ldquo;{keyword.trim()}&rdquo;</span>}
+          {city !== "All" && <span className="rounded-full bg-[#f6effd] px-3 py-1 font-medium text-[#6a17b8]">{city}</span>}
+          {category !== "All" && <span className="rounded-full bg-[#f6effd] px-3 py-1 font-medium text-[#6a17b8]">{category}</span>}
+          <button
+            type="button"
+            onClick={() => {
+              setKeyword("");
+              setCity("All");
+              setCategory("All");
+            }}
+            className="font-semibold text-neutral-500 underline-offset-2 hover:text-[#6a17b8] hover:underline"
+          >
+            Clear
+          </button>
         </div>
-      </div>
+      )}
 
       {/* 3. EVENT GRID */}
       {loading ? (
