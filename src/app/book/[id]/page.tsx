@@ -7,6 +7,7 @@ import Link from "next/link";
 import { getEventLifecycle } from "@/utils/eventLifecycle";
 import { getTimeLabels } from "@/utils/eventTimeLabels";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { blockedBookingMessage, isBlockedError } from "@/utils/blockedMessage";
 
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
@@ -145,6 +146,8 @@ export default function BookTicketPage() {
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  // An admin has blocked this account from sending new bookings (everything else about the account works)
+  const [blocked, setBlocked] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -180,6 +183,12 @@ export default function BookTicketPage() {
         return;
       }
       setSession(session);
+
+      // Is this account blocked from sending new bookings? (If the check is unavailable, nothing changes.)
+      try {
+        const { data: blockedFlag } = await supabase.rpc('am_i_blocked');
+        if (blockedFlag === true) setBlocked(true);
+      } catch {}
 
       // Pre-fill user details from users or organizers table or metadata
       let fetchedName = "";
@@ -442,6 +451,16 @@ export default function BookTicketPage() {
       return;
     }
 
+    // Blocked accounts cannot send new bookings. Checked first, so nothing gets uploaded.
+    try {
+      const { data: isBlocked } = await supabase.rpc('am_i_blocked');
+      if (isBlocked === true) {
+        setBlocked(true);
+        setSubmitting(false);
+        return;
+      }
+    } catch {}
+
     // Double-check real-time event status and capacity limits
     const currentLifecycle = getEventLifecycle(event, totalBooked);
     if (!currentLifecycle.canBook) {
@@ -619,7 +638,11 @@ export default function BookTicketPage() {
 
       setSuccess(true);
     } catch (err: any) {
-      setErrorMsg(err.message || "An error occurred during booking. Make sure the bookings table and storage buckets exist.");
+      if (isBlockedError(err?.message)) {
+        setBlocked(true);
+      } else {
+        setErrorMsg(err.message || "An error occurred during booking. Make sure the bookings table and storage buckets exist.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -818,6 +841,12 @@ export default function BookTicketPage() {
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
             Book Tickets
           </h2>
+
+          {blocked && (
+            <div role="alert" className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/50 dark:border-red-900/50 dark:text-red-300 text-sm font-medium leading-relaxed">
+              {blockedBookingMessage()}
+            </div>
+          )}
 
           {errorMsg && (
             <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/50 dark:border-red-900/50 dark:text-red-400 text-sm font-medium">
@@ -1023,7 +1052,7 @@ export default function BookTicketPage() {
               />
             </div>
 
-            <button type="submit" disabled={submitting} className="mt-4 w-full rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer">
+            <button type="submit" disabled={submitting || blocked} className="mt-4 w-full rounded-xl bg-green-500 px-8 py-3.5 text-base font-bold text-white transition hover:bg-green-600 active:translate-y-0 shadow-lg shadow-green-500/30 disabled:opacity-50 cursor-pointer">
               {submitting ? "Submitting Request..." : "Request Review / Submit"}
             </button>
           </form>

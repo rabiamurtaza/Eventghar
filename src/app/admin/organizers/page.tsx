@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import { fetchAllRows } from "@/utils/fetchAll";
 
 interface Organizer {
   id: string;
@@ -30,6 +31,9 @@ export default function AdminOrganizersAndUsersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Users blocked from sending new bookings, and how many bookings of each user were rejected
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
+  const [rejectedByEmail, setRejectedByEmail] = useState<Record<string, number>>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Manual Add Modal
@@ -61,6 +65,21 @@ export default function AdminOrganizersAndUsersPage() {
 
       const allEvents = eventData || [];
       setEvents(allEvents);
+
+      // 4. Who is blocked (empty if the block list is not set up yet) and rejected-booking counts per user
+      const { data: blockedData } = await supabase.from("blocked_users").select("user_id");
+      setBlockedIds((blockedData || []).map((b: { user_id: string }) => b.user_id));
+      const rejected = await fetchAllRows<{ user_email: string | null }>((from, to) =>
+        supabase.from("bookings").select("user_email").eq("status", "rejected").order("id").range(from, to)
+      );
+      if (!rejected.error) {
+        const counts: Record<string, number> = {};
+        rejected.data.forEach((b) => {
+          const key = (b.user_email || "").toLowerCase();
+          if (key) counts[key] = (counts[key] || 0) + 1;
+        });
+        setRejectedByEmail(counts);
+      }
 
       // Map events to organizers
       const orgsWithEvents: Organizer[] = (orgData || []).map((org) => {
@@ -168,6 +187,36 @@ export default function AdminOrganizersAndUsersPage() {
   };
 
   // Demote an Organizer back to Regular User
+  // Block / unblock: a blocked person can no longer send NEW bookings. Nothing else about their
+  // account changes (login, existing bookings, verified tickets and scanning all keep working).
+  const handleBlockToggle = async (user: UserProfile, block: boolean) => {
+    const name = user.full_name || user.email || "this user";
+    const ok = window.confirm(
+      block
+        ? `Block ${name}?\n\nThey will no longer be able to send new bookings (they will be told their account is blocked and to contact support).\n\nTheir existing bookings, verified tickets and account are NOT affected.`
+        : `Unblock ${name}?\n\nThey will be able to send bookings again.`
+    );
+    if (!ok) return;
+
+    setActionLoading(user.id);
+    setMessage(null);
+    const supabase = createClient();
+    try {
+      const { error } = await supabase.rpc(block ? "block_user" : "unblock_user", { target_user_id: user.id });
+      if (error) {
+        const missing = /could not find the function|does not exist/i.test(error.message) || error.code === "PGRST202";
+        throw new Error(missing ? "The block feature is not set up in the database yet. Please run EventGhar-BLOCK-USERS.sql in Supabase." : error.message);
+      }
+      setBlockedIds((prev) => (block ? Array.from(new Set([...prev, user.id])) : prev.filter((id) => id !== user.id)));
+      setMessage({ type: "success", text: block ? `${name} is now blocked from sending new bookings.` : `${name} can send bookings again.` });
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.message : String(err);
+      setMessage({ type: "error", text: (block ? "Could not block: " : "Could not unblock: ") + reason });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleDemoteToUser = async (org: Organizer) => {
     const displayName = org.full_name || org.name || org.email;
     if (org.events && org.events.length > 0) {
@@ -487,6 +536,19 @@ export default function AdminOrganizersAndUsersPage() {
                               #{user.user_number}
                             </span>
                           )}
+                          {blockedIds.includes(user.id) && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                              Blocked
+                            </span>
+                          )}
+                          {(rejectedByEmail[(user.email || "").toLowerCase()] || 0) > 0 && (
+                            <span
+                              className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                              title="Bookings from this user that were rejected"
+                            >
+                              {rejectedByEmail[(user.email || "").toLowerCase()]} rejected
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] font-mono text-neutral-400 truncate max-w-xs" title={user.id}>
                           ID: {user.id}
@@ -506,6 +568,24 @@ export default function AdminOrganizersAndUsersPage() {
                       </td>
 
                       <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                        {blockedIds.includes(user.id) ? (
+                          <button
+                            onClick={() => handleBlockToggle(user, false)}
+                            disabled={actionLoading === user.id}
+                            className="rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-xs font-bold transition shadow-sm disabled:opacity-50 cursor-pointer"
+                          >
+                            Unblock
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleBlockToggle(user, true)}
+                            disabled={actionLoading === user.id}
+                            className="rounded-xl border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40 px-4 py-2 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                          >
+                            Block
+                          </button>
+                        )}
                         <button
                           onClick={() => handlePromoteToOrganizer(user.id, user.full_name, user.email, user.phone_number)}
                           disabled={actionLoading === user.id}
@@ -520,6 +600,7 @@ export default function AdminOrganizersAndUsersPage() {
                             </>
                           )}
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))
