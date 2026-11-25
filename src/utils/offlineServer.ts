@@ -181,24 +181,34 @@ function toScanResult(row: CheckInRow): OfflineScanResult {
 
 export async function scanOfflineQr(
   supabase: SupabaseClient,
-  input: { qr: unknown; expectedEventId?: unknown }
+  input: { qr: unknown; expectedEventId?: unknown; eventIdHint?: unknown }
 ): Promise<OfflineScanResult> {
   const parsed = parseOfflineQr(input.qr);
   if (!parsed) return { result: "invalid", message: SCAN_MESSAGES.invalid };
 
   const expected = isUuid(input.expectedEventId) ? input.expectedEventId : null;
 
-  // Read-only: which event does this ticket belong to? (The database rules only show tickets
-  // of events this person manages; anything else looks like a ticket that does not exist.)
-  const { data: row } = await supabase
-    .from("offline_tickets")
-    .select("event_id")
-    .eq("id", parsed.ticketId)
-    .maybeSingle();
-  if (!row) return { result: "invalid", message: SCAN_MESSAGES.invalid };
+  // Which event does this ticket belong to?
+  //  - Normally: a read-only lookup. (The database rules only show tickets of events this person
+  //    manages; anything else looks like a ticket that does not exist.)
+  //  - Fast scanners send the event id from their synced list, which saves that lookup. It is safe:
+  //    the seal below is made from the ticket id AND the event id, so a wrong event id can only
+  //    make the seal check fail ("invalid"), never let a ticket through.
+  let ticketEventId: string;
+  if (isUuid(input.eventIdHint)) {
+    ticketEventId = input.eventIdHint;
+  } else {
+    const { data: row } = await supabase
+      .from("offline_tickets")
+      .select("event_id")
+      .eq("id", parsed.ticketId)
+      .maybeSingle();
+    if (!row) return { result: "invalid", message: SCAN_MESSAGES.invalid };
+    ticketEventId = row.event_id as string;
+  }
 
   // The seal is checked BEFORE anything is changed. A changed letter or an invented ticket fails here.
-  if (!verifySeal(parsed.ticketId, row.event_id as string, parsed.seal)) {
+  if (!verifySeal(parsed.ticketId, ticketEventId, parsed.seal)) {
     return { result: "invalid", message: SCAN_MESSAGES.invalid };
   }
 

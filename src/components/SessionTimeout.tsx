@@ -3,6 +3,7 @@
 import { useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { clearGateSnapshot } from "@/utils/gateCache";
 
 export default function SessionTimeout() {
   const router = useRouter();
@@ -52,6 +53,8 @@ export default function SessionTimeout() {
 
     const setupUserActivity = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      // Nobody is logged in: make sure no scanner ticket list is left on this device
+      if (!session) void clearGateSnapshot();
       if (!session || !isActive) return;
 
       // Determine role safely using maybeSingle
@@ -104,6 +107,8 @@ export default function SessionTimeout() {
       } else if (event === 'SIGNED_OUT') {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         removeCurrentListeners();
+        // Logged out (by hand or by the idle timeout): wipe the scanner ticket list from this device
+        void clearGateSnapshot();
       }
     });
 

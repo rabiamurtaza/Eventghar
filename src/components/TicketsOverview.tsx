@@ -24,6 +24,12 @@ interface TicketsOverviewProps {
   bookings: OverviewBooking[];
   /** Heading shown above the panel */
   title?: string;
+  /**
+   * When the page has ONE event dropdown for everything, it passes the chosen event here
+   * ("All" or an event id) and this panel hides its own dropdown and follows it.
+   * Without it the panel keeps its own dropdown, exactly as before.
+   */
+  selectedEventId?: string;
 }
 
 const qty = (b: OverviewBooking) => Math.max(1, Number(b.number_of_tickets) || 1);
@@ -73,8 +79,10 @@ function Bar({ verified, pending, capacity }: { verified: number; pending: numbe
   );
 }
 
-export default function TicketsOverview({ events, bookings, title = "Tickets Overview" }: TicketsOverviewProps) {
-  const [selectedEventId, setSelectedEventId] = useState<string>("All");
+export default function TicketsOverview({ events, bookings, title = "Tickets Overview", selectedEventId: controlledEventId }: TicketsOverviewProps) {
+  const [ownSelectedEventId, setSelectedEventId] = useState<string>("All");
+  const controlled = controlledEventId !== undefined;
+  const selectedEventId = controlled ? controlledEventId : ownSelectedEventId;
 
   const rows = useMemo(() => {
     // Include every event that has bookings, even if it isn't in the events list (e.g. drafts)
@@ -112,16 +120,18 @@ export default function TicketsOverview({ events, bookings, title = "Tickets Ove
             Counts real tickets (a booking of 5 = 5 tickets). Remaining = capacity − verified − pending.
           </p>
         </div>
-        <select
-          value={selectedEventId}
-          onChange={(e) => setSelectedEventId(e.target.value)}
-          className="w-full sm:w-72 rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
-        >
-          <option value="All">All events</option>
-          {rows.map((r) => (
-            <option key={r.evt.id} value={r.evt.id}>{eventLabel(r.evt)}</option>
-          ))}
-        </select>
+        {!controlled && (
+          <select
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            className="w-full sm:w-72 rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+          >
+            <option value="All">All events</option>
+            {rows.map((r) => (
+              <option key={r.evt.id} value={r.evt.id}>{eventLabel(r.evt)}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {rows.length === 0 ? (

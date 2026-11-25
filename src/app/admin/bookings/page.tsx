@@ -7,6 +7,8 @@ import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import { generateTicketsForBooking, playSuccessChime } from "@/utils/ticketService";
 import QRScannerModal from "@/components/QRScannerModal";
+import GateSyncButton from "@/components/GateSyncButton";
+import EventScopeSelect from "@/components/EventScopeSelect";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
 import { fetchAllRows } from "@/utils/fetchAll";
@@ -32,14 +34,15 @@ export default function AdminBookingsPage() {
   // Bookings Filters
   const [search, setSearch] = useState("");
   // Holds the selected event's ID ("All" = every event). IDs are unique, titles may not be.
-  const [eventFilter, setEventFilter] = useState("All");
+  // ONE event choice for the whole page: bookings, dashboard, attendance, offline tickets, Sync Tickets
+  const [eventFilterRaw, setEventFilter] = useState("All");
+  const eventFilter = eventFilterRaw === "All" || eventsList.some(e => e.id === eventFilterRaw) ? eventFilterRaw : "All";
   const eventFilterLabel = () => (eventFilter === "All" ? "All" : (eventsList.find(e => e.id === eventFilter)?.title || "Event"));
   const [statusFilter, setStatusFilter] = useState<"All" | "pending" | "verified" | "rejected">("All");
 
   // Attendance State
   const [issuedTickets, setIssuedTickets] = useState<any[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const [attendanceEventFilter, setAttendanceEventFilter] = useState("All");
   const [attendanceStatusFilter, setAttendanceStatusFilter] = useState<"All" | "used" | "valid">("All");
   const [attendanceSearch, setAttendanceSearch] = useState("");
 
@@ -209,12 +212,13 @@ export default function AdminBookingsPage() {
 
   const missingPassesBookings = useMemo(() => {
     return bookings.filter((b) => {
+      if (eventFilter !== "All" && b.event_id !== eventFilter) return false;
       if (b.status !== "verified" && b.status !== "confirmed") return false;
       const issuedCount = (issuedTickets || []).filter((t: any) => t.booking_id === b.id).length;
       const targetCount = Math.max(1, Number(b.number_of_tickets) || 1);
       return issuedCount < targetCount;
     });
-  }, [bookings, issuedTickets]);
+  }, [bookings, issuedTickets, eventFilter]);
 
   const handleGenerateMissingTickets = async (booking: any) => {
     if (inFlightRef.current.has(booking.id)) return;
@@ -444,7 +448,7 @@ export default function AdminBookingsPage() {
       t.holder_email?.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
       t.ticket_code?.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
       t.events?.title?.toLowerCase().includes(attendanceSearch.toLowerCase());
-    const matchesEvent = attendanceEventFilter === "All" || t.event_id === attendanceEventFilter;
+    const matchesEvent = eventFilter === "All" || t.event_id === eventFilter;
     const matchesStatus = attendanceStatusFilter === "All" || t.status === attendanceStatusFilter;
     return matchesSearch && matchesEvent && matchesStatus;
   });
@@ -452,22 +456,25 @@ export default function AdminBookingsPage() {
   // Calculate summary counts
   // Booking counts (number of booking requests) and ticket counts (sum of tickets in those bookings)
   const ticketsIn = (list: any[]) => list.reduce((sum, b) => sum + Math.max(1, Number(b.number_of_tickets) || 1), 0);
-  const pendingList = bookings.filter(b => b.status === 'pending');
-  const verifiedList = bookings.filter(b => b.status === 'verified' || b.status === 'confirmed');
-  const rejectedList = bookings.filter(b => b.status === 'rejected');
-  const totalCount = bookings.length;
+  // Only the chosen event (or everything when "All events" is chosen)
+  const scopedBookings = eventFilter === "All" ? bookings : bookings.filter(b => b.event_id === eventFilter);
+  const scopedTickets = eventFilter === "All" ? issuedTickets : issuedTickets.filter(t => t.event_id === eventFilter);
+  const pendingList = scopedBookings.filter(b => b.status === 'pending');
+  const verifiedList = scopedBookings.filter(b => b.status === 'verified' || b.status === 'confirmed');
+  const rejectedList = scopedBookings.filter(b => b.status === 'rejected');
+  const totalCount = scopedBookings.length;
   const pendingCount = pendingList.length;
   const verifiedCount = verifiedList.length;
   const rejectedCount = rejectedList.length;
-  const totalTickets = ticketsIn(bookings);
+  const totalTickets = ticketsIn(scopedBookings);
   const pendingTickets = ticketsIn(pendingList);
   const verifiedTickets = ticketsIn(verifiedList);
   const rejectedTickets = ticketsIn(rejectedList);
 
   // Attendance counts
-  const totalTicketsIssued = issuedTickets.length;
-  const totalScanned = issuedTickets.filter(t => t.status === 'used').length;
-  const totalUnscanned = issuedTickets.filter(t => t.status === 'valid').length;
+  const totalTicketsIssued = scopedTickets.length;
+  const totalScanned = scopedTickets.filter(t => t.status === 'used').length;
+  const totalUnscanned = scopedTickets.filter(t => t.status === 'valid').length;
   const attendanceRate = totalTicketsIssued > 0 ? Math.round((totalScanned / totalTicketsIssued) * 100) : 0;
 
   if (bookingKind === "offline") {
@@ -479,8 +486,9 @@ export default function AdminBookingsPage() {
             Printed cash tickets: generate, print, scan at the gate and track them for any event.
           </p>
         </div>
+        <EventScopeSelect value={eventFilter} onChange={setEventFilter} events={eventsList} />
         <BookingKindSwitch value={bookingKind} onChange={setBookingKind} />
-        <OfflineBookingsPanel />
+        <OfflineBookingsPanel eventId={eventFilter} />
       </div>
     );
   }
@@ -508,6 +516,8 @@ export default function AdminBookingsPage() {
             <span className="text-sm">📷</span>
             <span>QR Scanner</span>
           </button>
+
+          <GateSyncButton eventId={eventFilter} />
 
           {activeMainTab === "bookings" && (
             <>
@@ -543,6 +553,8 @@ export default function AdminBookingsPage() {
           )}
         </div>
       </div>
+
+      <EventScopeSelect value={eventFilter} onChange={setEventFilter} events={eventsList} />
 
       <BookingKindSwitch value={bookingKind} onChange={setBookingKind} />
 
@@ -644,7 +656,7 @@ export default function AdminBookingsPage() {
           </div>
 
           {/* Capacity vs booked tickets, per event and per ticket type */}
-          <TicketsOverview events={eventsList} bookings={bookings} />
+          <TicketsOverview events={eventsList} bookings={bookings} selectedEventId={eventFilter} />
 
 
           {/* Filter and Search Bar */}
@@ -666,19 +678,6 @@ export default function AdminBookingsPage() {
                 </button>
               )}
             </div>
-
-            <select 
-              value={eventFilter}
-              onChange={(e) => setEventFilter(e.target.value)}
-              className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-            >
-              <option value="All">All Events</option>
-              {eventsList.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}
-                </option>
-              ))}
-            </select>
 
             <select 
               value={statusFilter}
@@ -964,19 +963,6 @@ export default function AdminBookingsPage() {
                 </button>
               )}
             </div>
-
-            <select 
-              value={attendanceEventFilter}
-              onChange={(e) => setAttendanceEventFilter(e.target.value)}
-              className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-            >
-              <option value="All">All Events</option>
-              {eventsList.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}
-                </option>
-              ))}
-            </select>
 
             <select 
               value={attendanceStatusFilter}

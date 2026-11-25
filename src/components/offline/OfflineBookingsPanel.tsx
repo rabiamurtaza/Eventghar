@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRScannerModal from "@/components/QRScannerModal";
+import GateSyncButton from "@/components/GateSyncButton";
 import ConfirmDialog from "@/components/offline/ConfirmDialog";
 import OfflineAttendance from "@/components/offline/OfflineAttendance";
 import OfflineDashboard from "@/components/offline/OfflineDashboard";
@@ -26,12 +27,35 @@ const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : "
  * The "Offline bookings" side of Manage Bookings (organizer and admin).
  * Organizers only ever see their own events (the database enforces this); admins see all.
  */
-export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineApi }) {
+export default function OfflineBookingsPanel({
+  api: apiProp,
+  eventId: controlledEventId,
+}: {
+  api?: OfflineApi;
+  /**
+   * When the page has ONE event dropdown for everything, it passes the chosen event here
+   * ("All" or an event id): this panel then hides its own event dropdown and follows the page.
+   * "All" asks the person to choose an event (printed tickets belong to one event).
+   */
+  eventId?: string;
+}) {
   const api = useMemo(() => apiProp ?? createOfflineApi(), [apiProp]);
 
   const [events, setEvents] = useState<OfflineEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
-  const [eventId, setEventId] = useState("");
+  const [ownEventId, setEventId] = useState("");
+  const controlled = controlledEventId !== undefined;
+  // First live event: used when the page says "All events" (printed tickets belong to ONE event),
+  // so this panel is never left blank while the person has an event
+  const firstLiveId = (() => {
+    const open = events.find((e) => e.status === "published" && getEventLifecycle(e).status !== "ended");
+    return (open || events[0])?.id || "";
+  })();
+  const eventId = controlled
+    ? controlledEventId && controlledEventId !== "All" && events.some((e) => e.id === controlledEventId)
+      ? controlledEventId
+      : firstLiveId
+    : ownEventId;
   const [stats, setStats] = useState<OfflineStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -303,6 +327,15 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
     );
   }
 
+  // The page's single event dropdown is on "All events": printed tickets belong to ONE event, so ask for one
+  if (controlled && !selectedEvent) {
+    return (
+      <div className="rounded-2xl border border-dashed border-neutral-300 p-10 text-center text-sm font-semibold text-neutral-500 dark:border-neutral-700">
+        Choose an event from the dropdown above to manage its printed tickets.
+      </div>
+    );
+  }
+
   const cardsToShow = viewData ? (showAll ? viewData.tickets : viewData.tickets.slice(0, PREVIEW_COUNT)) : [];
   const eventLabel = (e: OfflineEvent) => `${e.event_number ? `#${e.event_number} - ` : ""}${e.title}${e.status !== "published" ? ` (${e.status || "draft"})` : ""}`;
 
@@ -310,29 +343,34 @@ export default function OfflineBookingsPanel({ api: apiProp }: { api?: OfflineAp
     <div>
       {/* Event + scanner */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <label className="block w-full sm:max-w-md">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Event</span>
-          <select
-            value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
-            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+        {!controlled && (
+          <label className="block w-full sm:max-w-md">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">Event</span>
+            <select
+              value={eventId}
+              onChange={(e) => setEventId(e.target.value)}
+              className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm font-semibold outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-white"
+            >
+              {events.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {eventLabel(e)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="flex flex-wrap items-start gap-2">
+          <button
+            type="button"
+            onClick={() => setScannerOpen(true)}
+            disabled={!selectedEvent}
+            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
           >
-            {events.map((e) => (
-              <option key={e.id} value={e.id}>
-                {eventLabel(e)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          onClick={() => setScannerOpen(true)}
-          disabled={!selectedEvent}
-          className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
-        >
-          <span className="text-sm">📷</span>
-          <span>{selectedEvent ? `Scan: ${selectedEvent.title}` : "QR Scanner"}</span>
-        </button>
+            <span className="text-sm">📷</span>
+            <span>{selectedEvent ? `Scan: ${selectedEvent.title}` : "QR Scanner"}</span>
+          </button>
+          <GateSyncButton eventId={eventId} />
+        </div>
       </div>
 
       {loadError && (

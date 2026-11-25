@@ -7,6 +7,8 @@ import autoTable from "jspdf-autotable";
 import { verifyBooking, rejectBooking } from "@/utils/bookingActions";
 import { playSuccessChime } from "@/utils/ticketService";
 import QRScannerModal from "@/components/QRScannerModal";
+import GateSyncButton from "@/components/GateSyncButton";
+import EventScopeSelect from "@/components/EventScopeSelect";
 import TicketsOverview from "@/components/TicketsOverview";
 import { getBookingPrice, formatRs } from "@/utils/bookingPrice";
 import { fetchAllRows } from "@/utils/fetchAll";
@@ -29,9 +31,18 @@ export default function OrganizerBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   // Holds the selected event's ID ("All" = every event). IDs are unique, titles may not be.
-  const [eventFilter, setEventFilter] = useState("All");
-  const eventFilterLabel = () => (eventFilter === "All" ? "All" : (eventsList.find(e => e.id === eventFilter)?.title || "Event"));
   const [eventsList, setEventsList] = useState<any[]>([]);
+  // ONE event choice for the whole page: bookings, dashboard, attendance, offline tickets, Sync Tickets.
+  // An organizer with a single event has no dropdown and is simply locked to that event;
+  // an event that no longer exists falls back to "All".
+  const [eventFilterRaw, setEventFilter] = useState("All");
+  const eventFilter =
+    eventsList.length === 1
+      ? eventsList[0].id
+      : eventFilterRaw === "All" || eventsList.some(e => e.id === eventFilterRaw)
+        ? eventFilterRaw
+        : "All";
+  const eventFilterLabel = () => (eventFilter === "All" ? "All" : (eventsList.find(e => e.id === eventFilter)?.title || "Event"));
 
   // Attendance State
   const [issuedTickets, setIssuedTickets] = useState<any[]>([]);
@@ -377,9 +388,10 @@ export default function OrganizerBookingsPage() {
   const activeEventObj = eventsList.find(e => e.id === eventFilter);
 
   // Attendance metrics
-  const totalTicketsIssued = issuedTickets.length;
-  const totalScanned = issuedTickets.filter(t => t.status === 'used').length;
-  const totalUnscanned = issuedTickets.filter(t => t.status === 'valid').length;
+  const scopedTickets = eventFilter === "All" ? issuedTickets : issuedTickets.filter(t => t.event_id === eventFilter);
+  const totalTicketsIssued = scopedTickets.length;
+  const totalScanned = scopedTickets.filter(t => t.status === 'used').length;
+  const totalUnscanned = scopedTickets.filter(t => t.status === 'valid').length;
 
   if (bookingKind === "offline") {
     return (
@@ -391,8 +403,9 @@ export default function OrganizerBookingsPage() {
               Printed cash tickets for your events: generate, print, scan at the gate and track them.
             </p>
           </div>
+          {eventsList.length > 1 && <EventScopeSelect value={eventFilter} onChange={setEventFilter} events={eventsList} />}
           <BookingKindSwitch value={bookingKind} onChange={setBookingKind} />
-          <OfflineBookingsPanel />
+          <OfflineBookingsPanel eventId={eventFilter} />
         </div>
       </div>
     );
@@ -423,8 +436,12 @@ export default function OrganizerBookingsPage() {
               <span>{activeEventObj ? `Scan: ${activeEventObj.title}` : "QR Scanner"}</span>
             </button>
 
+            <GateSyncButton eventId={eventFilter} />
+
           </div>
         </div>
+
+        {eventsList.length > 1 && <EventScopeSelect value={eventFilter} onChange={setEventFilter} events={eventsList} />}
 
         <BookingKindSwitch value={bookingKind} onChange={setBookingKind} />
 
@@ -466,7 +483,7 @@ export default function OrganizerBookingsPage() {
         {activeMainTab === "bookings" && (
           <>
             {/* Capacity vs booked tickets for this organizer's own events only */}
-            <TicketsOverview events={eventsList} bookings={bookings} title="My Events - Tickets Overview" />
+            <TicketsOverview events={eventsList} bookings={bookings} title="My Events - Tickets Overview" selectedEventId={eventFilter} />
 
             <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -477,16 +494,6 @@ export default function OrganizerBookingsPage() {
                   onChange={e => setSearch(e.target.value)}
                   className="w-full max-w-md rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                 />
-                <select 
-                  value={eventFilter}
-                  onChange={(e) => setEventFilter(e.target.value)}
-                  className="w-full sm:w-auto rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm outline-none focus:border-indigo-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                >
-                  <option value="All">All Events</option>
-                  {eventsList.map((evt, i) => (
-                    <option key={evt.id || i} value={evt.id}>{evt.event_number ? `#${evt.event_number} - ` : ''}{evt.title}</option>
-                  ))}
-                </select>
               </div>
               <div className="flex gap-2">
                 <button 

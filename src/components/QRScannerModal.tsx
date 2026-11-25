@@ -3,6 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { playSuccessChime, playErrorBuzzer } from "@/utils/ticketService";
+import { markOfflineCheckedIn, markOnlineUsed, preloadGateSnapshot } from "@/utils/gateCache";
+import {
+  NO_INTERNET_MESSAGE,
+  deviceIsOffline,
+  fastOfflineLookup,
+  fastOnlineCheck,
+  looksLikeNetworkError,
+  parseOfflineTicketId,
+} from "@/utils/gateScan";
 
 interface QRScannerModalProps {
   isOpen: boolean;
@@ -67,6 +76,12 @@ export default function QRScannerModal({
       setSelectedEventId(eventsList[0].id);
     }
   }, [fixedEventId, eventsList]);
+
+  // Load the "Sync Tickets" list (if this device has one) so scans can be recognised instantly.
+  // If there is none, or loading fails, scanning simply works the original way.
+  useEffect(() => {
+    if (isOpen) void preloadGateSnapshot();
+  }, [isOpen]);
 
   // Start scanner when modal opens
   useEffect(() => {
@@ -176,21 +191,47 @@ export default function QRScannerModal({
       setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
     };
 
+    // Fast answer from this device's "Sync Tickets" list. Only answers that can never change
+    // (wrong event / already used / void) are given here; everything else still goes to the server.
+    const fast = fastOfflineLookup(qr, selectedEventId);
+    if (fast.kind === "instant") {
+      show({ type: fast.type, message: fast.message, offline: fast.offline, timestamp: timeStr });
+      return;
+    }
+
+    // No internet: say so at once instead of waiting for the request to fail
+    if (deviceIsOffline()) {
+      show({ type: "invalid", message: NO_INTERNET_MESSAGE, timestamp: timeStr });
+      return;
+    }
+
     try {
       const response = await fetch("/api/offline/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qr, eventId: selectedEventId || undefined }),
+        body: JSON.stringify({
+          qr,
+          eventId: selectedEventId || undefined,
+          eventIdHint: fast.kind === "live" ? fast.eventId : undefined,
+        }),
       });
       const data = await response.json().catch(() => null);
 
       if (!response.ok || !data || !data.result) {
         show({
           type: "invalid",
-          message: `Could not check the ticket (${data?.error || "no connection"}). Do NOT admit yet - check the connection and scan again.`,
+          message: data?.error
+            ? `Could not check the ticket (${data.error}). Do NOT admit yet - check the connection and scan again.`
+            : NO_INTERNET_MESSAGE,
           timestamp: timeStr,
         });
         return;
+      }
+
+      // Remember on this device that the ticket is used, so a second scan is refused at once
+      const scannedTicketId = parseOfflineTicketId(qr);
+      if (scannedTicketId && (data.result === "valid" || data.result === "already_used")) {
+        markOfflineCheckedIn(scannedTicketId, data.details?.checked_in_at ?? null);
       }
 
       const type: ScanResult["type"] =
@@ -223,7 +264,7 @@ export default function QRScannerModal({
     } catch {
       show({
         type: "invalid",
-        message: "Could not reach the server. Do NOT admit yet - check the connection and scan again.",
+        message: NO_INTERNET_MESSAGE,
         timestamp: timeStr,
       });
     }
@@ -283,6 +324,38 @@ export default function QRScannerModal({
         setScanHistory((prev) => [res, ...prev.slice(0, 9)]);
       };
 
+      // 3b. FAST PATH (only if this device has a "Sync Tickets" list that knows this ticket).
+      //     It answers "wrong event" / "already used" at once and otherwise admits through ONE live
+      //     database check. If it is not sure about anything, it hands over to the original steps below.
+      {
+        const activeEventObj = eventsList.find((e) => e.id === selectedEventId);
+        const fast = await fastOnlineCheck(supabase, {
+          ticketId: parsed.ticket_id,
+          ticketCode: parsed.ticket_code,
+          selectedEventId,
+          activeEventName: fixedEventTitle || activeEventObj?.title || "Active Event",
+        });
+        if (fast.handled) {
+          showResult(
+            { type: fast.type, message: fast.message, details: fast.details, timestamp: timeStr },
+            fast.success === true
+          );
+          if (fast.success && onScanSuccess) onScanSuccess();
+          return;
+        }
+      }
+
+      // No internet: say so at once instead of waiting for the request to fail
+      if (deviceIsOffline()) {
+        showResult({
+          type: "invalid",
+          message: NO_INTERNET_MESSAGE,
+          details: { holder_name: parsed.holder_name, ticket_code: parsed.ticket_code },
+          timestamp: timeStr,
+        });
+        return;
+      }
+
       // 4. Database Check (the database is the source of truth, not the QR content)
       const { data: ticket, error } = await supabase
         .from("issued_tickets")
@@ -301,7 +374,9 @@ export default function QRScannerModal({
       if (error && error.code !== "22P02") {
         showResult({
           type: "invalid",
-          message: `Could not check ticket (${error.message}). Do NOT admit yet - check the connection and scan again.`,
+          message: looksLikeNetworkError(error)
+            ? NO_INTERNET_MESSAGE
+            : `Could not check ticket (${error.message}). Do NOT admit yet - check the connection and scan again.`,
           details: { holder_name: parsed.holder_name, ticket_code: parsed.ticket_code },
           timestamp: timeStr,
         });
@@ -405,7 +480,9 @@ export default function QRScannerModal({
       if (updateError) {
         showResult({
           type: "invalid",
-          message: `Entry NOT recorded (${updateError.message}). Do NOT admit - scan again.`,
+          message: looksLikeNetworkError(updateError)
+            ? NO_INTERNET_MESSAGE
+            : `Entry NOT recorded (${updateError.message}). Do NOT admit - scan again.`,
           details: ticketDetails,
           timestamp: timeStr,
         });
@@ -442,6 +519,8 @@ export default function QRScannerModal({
         },
         true
       );
+      // Remember on this device that the ticket is used (instant refusal on a second scan)
+      markOnlineUsed(ticket.id, nowIso);
 
       if (onScanSuccess) {
         onScanSuccess();
