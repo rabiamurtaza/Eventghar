@@ -102,7 +102,7 @@ export default function PublishedEventsPage() {
       setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
       setFeedbackMsg({
         type: "success",
-        text: `Event "${eventToDelete.title}" and all related bookings/tickets were permanently deleted.`,
+        text: `Event "${eventToDelete.title}" and all related bookings/tickets were permanently deleted.${result.warning ? " " + result.warning : ""}`,
       });
       setEventToDelete(null);
     } else {

@@ -72,7 +72,7 @@ export default function DraftsPage() {
       setDrafts(prev => prev.filter(draft => draft.id !== eventToDelete.id));
       setFeedbackMsg({
         type: "success",
-        text: `Draft "${eventToDelete.title}" and all related data were permanently deleted.`,
+        text: `Draft "${eventToDelete.title}" and all related data were permanently deleted.${result.warning ? " " + result.warning : ""}`,
       });
       setEventToDelete(null);
     } else {

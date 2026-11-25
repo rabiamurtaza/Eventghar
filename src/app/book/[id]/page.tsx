@@ -8,6 +8,7 @@ import { getEventLifecycle } from "@/utils/eventLifecycle";
 import { getTimeLabels } from "@/utils/eventTimeLabels";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { blockedBookingMessage, isBlockedError } from "@/utils/blockedMessage";
+import { compressScreenshot } from "@/utils/compressImage";
 
 const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
@@ -581,9 +582,11 @@ export default function BookTicketPage() {
     try {
       // Upload Payment Screenshot (required - validated above)
       {
-        const pExt = paymentScreenshot.name.split('.').pop();
+        // Shrink the picture first (falls back to the original file if anything goes wrong)
+        const fileToUpload = await compressScreenshot(paymentScreenshot);
+        const pExt = fileToUpload.name.split('.').pop();
         const pName = `payment-${Date.now()}-${Math.random().toString(36).substring(2)}.${pExt}`;
-        const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, paymentScreenshot);
+        const { error: pError } = await supabase.storage.from('payment-screenshots').upload(pName, fileToUpload);
         if (pError) throw pError;
         const { data: pData } = supabase.storage.from('payment-screenshots').getPublicUrl(pName);
         paymentScreenshotUrl = pData.publicUrl;
