@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 import { SUPPORT_WHATSAPP, SUPPORT_EMAIL } from "@/config/site";
+import { siteConfig } from "@/config/site";
 import EmailLink from "@/components/EmailLink";
 
 function normalizePhoneNumber(phone: string): string {
@@ -15,6 +16,10 @@ function normalizePhoneNumber(phone: string): string {
     cleaned = "0" + cleaned.slice(2);
   }
   return cleaned;
+}
+
+function couldNotSendMessage(): string {
+  return `We could not send your message right now. Please try again, or contact us directly: ${siteConfig.supportEmail} or WhatsApp ${siteConfig.whatsapp.display}.`;
 }
 
 export default function ContactUsPage() {
@@ -101,14 +106,15 @@ export default function ContactUsPage() {
       ]);
 
       if (error) {
-        console.warn("Could not save to contact_messages table (table may not exist yet):", error.message);
+        console.warn("Could not save contact message:", error.message);
+        setErrorMsg(couldNotSendMessage());
+        return;
       }
 
       setSubmitted(true);
     } catch (err: any) {
       console.error("Submission error:", err);
-      // Still show success since user can also reach via WhatsApp/Email
-      setSubmitted(true);
+      setErrorMsg(couldNotSendMessage());
     } finally {
       setLoading(false);
     }

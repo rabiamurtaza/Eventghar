@@ -523,20 +523,30 @@ export default function BookTicketPage() {
       }
       formattedCnic = `${cleanDigits.slice(0, 5)}-${cleanDigits.slice(5, 12)}-${cleanDigits.slice(12, 13)}`;
 
-      // Check for existing active booking with this CNIC for this event
-      const { data: existingBookings, error: cnicCheckErr } = await supabase
-        .from('bookings')
-        .select('id')
-        .eq('event_id', event.id)
-        .eq('cnic', formattedCnic)
-        .in('status', ['pending', 'verified', 'confirmed'])
-        .limit(1);
-
-      if (cnicCheckErr) {
-        console.error("Error verifying CNIC uniqueness:", cnicCheckErr);
+      // Check for an existing active booking with this CNIC for this event.
+      // The database function sees ALL bookings (buyers can only read their own) and returns just yes/no.
+      let cnicAlreadyUsed = false;
+      const { data: cnicInUse, error: cnicRpcErr } = await supabase.rpc('cnic_in_use', {
+        p_event_id: event.id,
+        p_cnic: formattedCnic,
+      });
+      if (!cnicRpcErr && typeof cnicInUse === 'boolean') {
+        cnicAlreadyUsed = cnicInUse;
+      } else {
+        // Function not available / network trouble: fall back to the old check (the buyer's own bookings)
+        if (cnicRpcErr) console.error("Error verifying CNIC uniqueness:", cnicRpcErr);
+        const { data: existingBookings, error: cnicCheckErr } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('event_id', event.id)
+          .eq('cnic', formattedCnic)
+          .in('status', ['pending', 'verified', 'confirmed'])
+          .limit(1);
+        if (cnicCheckErr) console.error("Error verifying CNIC uniqueness:", cnicCheckErr);
+        cnicAlreadyUsed = !!(existingBookings && existingBookings.length > 0);
       }
 
-      if (existingBookings && existingBookings.length > 0) {
+      if (cnicAlreadyUsed) {
         setErrorMsg("A booking with this CNIC already exists for this event. Each attendee must book with their own unique CNIC. Please check the CNIC entered or contact support if you need assistance.");
         setSubmitting(false);
         return;
